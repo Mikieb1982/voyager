@@ -8,7 +8,7 @@
         /* --- Base Styles & Reset --- */
         * { margin: 0; padding: 0; box-sizing: border-box; touch-action: manipulation; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
         body { overflow: hidden; position: fixed; width: 100%; height: 100%; background: #000; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: white; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
-        canvas { display: block; position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+        canvas { display: block; position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; background: #000510; /* Ensure canvas has background */ }
 
         /* --- UI Container & Elements --- */
         #uiContainer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; }
@@ -18,13 +18,14 @@
         #healthBar { top: 15px; }
         #energyBar { top: 45px; height: 15px; border-radius: 7px; }
         .statusBarFill { height: 100%; width: 100%; transition: width 0.25s ease-out; }
-        #healthFill { background: linear-gradient(to right, #e74c3c, #f1c40f); }
-        #energyFill { background: linear-gradient(to right, #3498db, #5dade2); }
+        /* Adjusted colors for red-green color blindness: Using blue/yellow/red */
+        #healthFill { background: linear-gradient(to right, #e74c3c, #f1c40f); } /* Red to Yellow */
+        #energyFill { background: linear-gradient(to right, #3498db, #5dade2); } /* Blue gradient */
 
         /* Score & Level Display */
         .infoDisplay { position: absolute; top: 15px; right: 15px; text-align: right; text-shadow: 1px 1px 3px rgba(0,0,0,0.8); }
-        #scoreDisplay { font-size: clamp(20px, 4vw, 28px); font-weight: bold; color: #f1c40f; }
-        #levelDisplay { font-size: clamp(14px, 3vw, 18px); margin-top: 5px; color: #bdc3c7; }
+        #scoreDisplay { font-size: clamp(20px, 4vw, 28px); font-weight: bold; color: #f1c40f; } /* Yellow for score */
+        #levelDisplay { font-size: clamp(14px, 3vw, 18px); margin-top: 5px; color: #bdc3c7; } /* Light grey */
         #waveDisplay { font-size: clamp(14px, 3vw, 18px); margin-top: 5px; color: #bdc3c7; display: none; /* Shown during gameplay */ }
 
         /* --- Touch Controls --- */
@@ -53,13 +54,13 @@
         .upgradeCard { background: rgba(41, 128, 185, 0.15); border-radius: 15px; padding: 20px; border: 1px solid rgba(52, 152, 219, 0.4); box-shadow: 0 0 15px rgba(52, 152, 219, 0.1); display: flex; flex-direction: column; }
         .upgradeTitle { font-size: clamp(18px, 4vw, 22px); color: #5dade2; margin-bottom: 8px; font-weight: bold; }
         .upgradeDesc { font-size: clamp(13px, 2.5vw, 16px); margin-bottom: 15px; color: #bdc3c7; flex-grow: 1; }
-        .upgradeLevel { font-size: clamp(12px, 2vw, 14px); color: #888; margin-bottom: 10px; }
-        .upgradeButton { width: 100%; height: 45px; background: linear-gradient(to bottom, #2ecc71, #27ae60); border: none; border-radius: 10px; color: white; font-size: clamp(14px, 3vw, 16px); cursor: pointer; transition: background 0.2s; font-weight: bold; }
+        .upgradeLevel { font-size: clamp(12px, 2vw, 14px); color: #aaa; margin-bottom: 10px; }
+        .upgradeButton { width: 100%; height: 45px; background: linear-gradient(to bottom, #27ae60, #229954); /* Distinct Green */ border: none; border-radius: 10px; color: white; font-size: clamp(14px, 3vw, 16px); cursor: pointer; transition: background 0.2s; font-weight: bold; }
         .upgradeButton:disabled { background: linear-gradient(to bottom, #95a5a6, #7f8c8d); cursor: not-allowed; opacity: 0.7; }
         .upgradeButton span { font-weight: normal; opacity: 0.9; }
 
         /* --- Game Over Menu Specifics --- */
-        #finalScore { font-size: clamp(28px, 6vw, 42px); margin: 20px 0; color: #f1c40f; font-weight: bold; }
+        #finalScore { font-size: clamp(28px, 6vw, 42px); margin: 20px 0; color: #f1c40f; font-weight: bold; } /* Yellow */
         #highScoreDisplay { font-size: clamp(18px, 4vw, 24px); color: #bdc3c7; margin-bottom: 30px; }
 
         /* --- Loading Screen --- */
@@ -182,12 +183,15 @@
 
     <script>
         // --- Polyfills and Setup ---
+        // Ensures requestAnimationFrame is available
         window.requestAnimationFrame = window.requestAnimationFrame || window.webkitRequestAnimationFrame || window.mozRequestAnimationFrame || window.oRequestAnimationFrame || window.msRequestAnimationFrame || function(callback) { window.setTimeout(callback, 1000 / 60); };
+        // Detect if the device supports touch events
         const IS_TOUCH_DEVICE = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
         // --- DOM Elements ---
+        // Get references to all necessary HTML elements for manipulation
         const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d'); // Canvas rendering context
         const uiContainer = document.getElementById('uiContainer');
         const healthFill = document.getElementById('healthFill');
         const energyFill = document.getElementById('energyFill');
@@ -215,80 +219,85 @@
         const loadingBar = document.getElementById('loadingBar');
 
         // --- Game Configuration ---
+        // Central object holding game balance constants and settings
         const CONFIG = {
-            // Player Base Stats
-            PLAYER_BASE_SPEED: 5,
-            PLAYER_BASE_HEALTH: 100,
-            PLAYER_BASE_ENERGY: 100,
-            PLAYER_BASE_ENERGY_REGEN: 1, // Units per second
-            PLAYER_BASE_FIRE_RATE: 500, // ms between shots
-            PLAYER_BASE_BULLET_SPEED: 8,
-            PLAYER_BASE_BULLET_DAMAGE: 10,
-            PLAYER_WIDTH: 40,
-            PLAYER_HEIGHT: 55,
-            PLAYER_INVULN_TIME: 1500, // ms after hit
+            // Player Base Stats (Before Upgrades)
+            PLAYER_BASE_SPEED: 5,         // Base movement speed units
+            PLAYER_BASE_HEALTH: 100,      // Starting health points
+            PLAYER_BASE_ENERGY: 100,      // Starting shield energy points
+            PLAYER_BASE_ENERGY_REGEN: 1,  // Energy points regenerated per second
+            PLAYER_BASE_FIRE_RATE: 500,   // Milliseconds between shots
+            PLAYER_BASE_BULLET_SPEED: 8,  // Speed of player bullets
+            PLAYER_BASE_BULLET_DAMAGE: 10,// Damage per player bullet hit
+            PLAYER_WIDTH: 40,             // Pixel width of the player ship
+            PLAYER_HEIGHT: 55,            // Pixel height of the player ship
+            PLAYER_INVULN_TIME: 1500,     // Milliseconds of invulnerability after being hit
 
-            // Visuals
-            STAR_COUNT: 150,
-            STAR_MAX_SIZE: 2.5,
-            STAR_SPEED_FACTOR: [0.1, 0.3, 0.6], // Parallax layers
-            PARTICLE_COUNT: 100,
-            PARTICLE_LIFESPAN: 800, // ms
-            SCREEN_SHAKE_DURATION: 200, // ms
-            SCREEN_SHAKE_MAGNITUDE: 4, // pixels
+            // Visual Settings
+            STAR_COUNT: 150,              // Number of stars in the parallax background
+            STAR_MAX_SIZE: 2.5,           // Maximum radius of a star
+            STAR_SPEED_FACTOR: [0.1, 0.3, 0.6], // Speed multipliers for different star layers (parallax effect)
+            PARTICLE_COUNT: 100,          // Maximum number of particles managed by the system (for explosions etc.)
+            PARTICLE_LIFESPAN: 800,       // Default milliseconds a particle lives
+            SCREEN_SHAKE_DURATION: 200,   // Default milliseconds screen shake lasts
+            SCREEN_SHAKE_MAGNITUDE: 4,    // Default maximum pixel offset for screen shake
 
-            // Gameplay
-            LEVEL_SCORE_INCREMENT: 5000, // Score needed to level up
-            WAVES_PER_LEVEL: 5,
-            ENEMY_SPAWN_BASE_RATE: 2500, // ms
-            ENEMY_SPAWN_RATE_SCALING: 0.9, // Multiplier per level
-            POWERUP_DROP_CHANCE: 0.1, // 10% chance on enemy kill
-            BOSS_SPAWN_LEVEL_INTERVAL: 3, // Boss every 3 levels
+            // Gameplay Mechanics
+            LEVEL_SCORE_INCREMENT: 5000,  // Score needed to advance a level (alternative to wave completion) - Currently unused in favor of wave completion
+            WAVES_PER_LEVEL: 5,           // Number of enemy waves before a level transition or boss
+            ENEMY_SPAWN_BASE_RATE: 2500,  // Base milliseconds between enemy spawns
+            ENEMY_SPAWN_RATE_SCALING: 0.9,// Multiplier applied to spawn rate per level (e.g., 0.9 means 10% faster spawns)
+            POWERUP_DROP_CHANCE: 0.1,     // Probability (0 to 1) of an enemy dropping a powerup on death
+            BOSS_SPAWN_LEVEL_INTERVAL: 3, // Boss appears at the end of every N levels (e.g., 3, 6, 9...)
 
-            // Upgrades - [Base Cost, Cost Increase Factor, Stat Increase]
+            // Upgrade Definitions: [Base Cost, Cost Increase Factor per Level, Stat Increase per Level, Max Level, Type of Increase]
             UPGRADES: {
-                damage: { baseCost: 100, costFactor: 1.6, increase: 0.2, maxLevel: 10, valueType: 'percent' }, // 20% damage increase
-                fireRate: { baseCost: 150, costFactor: 1.7, increase: 0.9, maxLevel: 10, valueType: 'multiplier' }, // Multiplies interval (0.9 = faster)
-                maxEnergy: { baseCost: 200, costFactor: 1.5, increase: 25, maxLevel: 10, valueType: 'flat' }, // +25 max energy
-                energyRegen: { baseCost: 250, costFactor: 1.6, increase: 0.5, maxLevel: 10, valueType: 'flat' }, // +0.5 energy/sec
-                maxHealth: { baseCost: 300, costFactor: 1.5, increase: 20, maxLevel: 10, valueType: 'flat' }, // +20 max health
-                speed: { baseCost: 175, costFactor: 1.6, increase: 0.5, maxLevel: 8, valueType: 'flat' }  // +0.5 speed units
+                damage:    { baseCost: 100, costFactor: 1.6, increase: 0.2,  maxLevel: 10, valueType: 'percent' },    // Damage increases by 20% multiplicative
+                fireRate:  { baseCost: 150, costFactor: 1.7, increase: 0.9,  maxLevel: 10, valueType: 'multiplier' }, // Fire interval multiplied by 0.9 (faster)
+                maxEnergy: { baseCost: 200, costFactor: 1.5, increase: 25,   maxLevel: 10, valueType: 'flat' },       // +25 Max Energy (flat amount)
+                energyRegen:{ baseCost: 250, costFactor: 1.6, increase: 0.5,  maxLevel: 10, valueType: 'flat' },       // +0.5 Energy Regen per second
+                maxHealth: { baseCost: 300, costFactor: 1.5, increase: 20,   maxLevel: 10, valueType: 'flat' },       // +20 Max Health
+                speed:     { baseCost: 175, costFactor: 1.6, increase: 0.5,  maxLevel: 8,  valueType: 'flat' }        // +0.5 Speed units
             },
 
-            // Audio (Placeholder - Recommend jsfxr or similar if implementing)
-            ENABLE_SOUND: false // Set to true if you add a sound library/generation
+            // Audio Settings (Placeholder)
+            ENABLE_SOUND: false // Global switch to enable/disable sound effects (requires implementation)
         };
 
         // --- Game State ---
+        // Object holding the current dynamic state of the game
         let gameState = {
-            running: false,
-            paused: false,
-            gameOver: false,
-            currentLevel: 1,
-            currentWave: 1,
-            waveEnemyCount: 0, // Enemies remaining in current wave
-            enemiesToSpawnThisWave: 0,
-            score: 0,
-            highScore: 0,
-            totalCredits: 0, // Currency for upgrades
-            lastTime: 0,
-            deltaTime: 0,
-            gameTime: 0,
-            screenShakeTime: 0,
-            screenShakeMagnitude: 0,
-            currentBoss: null,
-            saveDataKey: 'stellarVoyagerSave_v1'
+            running: false,               // Is the game loop actively updating and drawing?
+            paused: false,                // Is the game currently paused?
+            gameOver: false,              // Is the game over screen active?
+            currentLevel: 1,              // Current level number
+            currentWave: 1,               // Current wave number within the level
+            waveEnemyCount: 0,            // Number of enemies remaining to be defeated in the current wave
+            enemiesToSpawnThisWave: 0,    // Number of enemies yet to be spawned in this wave
+            score: 0,                     // Player's current score
+            highScore: 0,                 // Highest score achieved (loaded from localStorage)
+            totalCredits: 0,              // Currency available for upgrades (loaded from localStorage)
+            lastTime: 0,                  // Timestamp of the previous frame (for calculating deltaTime)
+            deltaTime: 0,                 // Time elapsed since the last frame (in seconds)
+            gameTime: 0,                  // Total time elapsed since the game started (in seconds)
+            screenShakeTime: 0,           // Remaining duration for screen shake effect (in ms)
+            screenShakeMagnitude: 0,      // Current intensity of screen shake
+            currentBoss: null,            // Reference to the active boss enemy object, if any
+            saveDataKey: 'stellarVoyagerSave_v1', // Key used for saving/loading data in localStorage
+            loopHandle: null              // Stores the handle returned by requestAnimationFrame to potentially cancel it
         };
 
         // --- Game Objects ---
-        let player;
-        let bullets = [];
-        let enemies = [];
-        let particles = [];
-        let stars = [];
-        let powerups = [];
+        // Arrays to hold all active game entities
+        let player;                     // The player ship object
+        let bullets = [];               // Array of active bullet objects (player and enemy)
+        let enemies = [];               // Array of active enemy objects
+        let particles = [];             // Array of active particle objects (for effects)
+        let stars = [];                 // Array of star objects for the background
+        let powerups = [];              // Array of active powerup objects
 
         // Player Stats (dynamically calculated based on upgrades)
+        // This object holds the player's current stats after applying upgrades
         let playerStats = {
             speed: CONFIG.PLAYER_BASE_SPEED,
             maxHealth: CONFIG.PLAYER_BASE_HEALTH,
@@ -296,12 +305,1821 @@
             energyRegen: CONFIG.PLAYER_BASE_ENERGY_REGEN,
             fireRate: CONFIG.PLAYER_BASE_FIRE_RATE,
             bulletDamage: CONFIG.PLAYER_BASE_BULLET_DAMAGE,
-            // Current upgrade levels
+            // Current upgrade levels (loaded from localStorage)
             upgradeLevels: { damage: 0, fireRate: 0, maxEnergy: 0, energyRegen: 0, maxHealth: 0, speed: 0 }
         };
 
         // Input State
+        // Tracks the current state of player inputs (keyboard, touch, mouse)
         let input = {
-            left: false,
-            right: false,
- 
+            left: false,            // Is the left movement key/touch active?
+            right: false,           // Is the right movement key/touch active?
+            fire: false,            // Is the fire key/touch/mouse active?
+            touchLeftActive: false, // Internal state for left touch area
+            touchRightActive: false,// Internal state for right touch area
+            touchFireActive: false  // Internal state for fire touch area
+        };
+
+        // --- Utility Functions ---
+        // Helper functions for common tasks
+        const rand = (min, max) => Math.random() * (max - min) + min; // Random float between min and max
+        const randInt = (min, max) => Math.floor(rand(min, max + 1)); // Random integer between min and max (inclusive)
+        const clamp = (value, min, max) => Math.max(min, Math.min(value, max)); // Constrain value within min and max
+        const lerp = (a, b, t) => a + (b - a) * t; // Linear interpolation between a and b by factor t
+
+        // --- Initialization ---
+        // Function called when the window loads to set up the game
+        function init() {
+            console.log("Initializing Stellar Voyager...");
+            // Set canvas dimensions to fill the window
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            loadGame(); // Load saved data (high score, credits, upgrades)
+            createStars(); // Generate initial starfield
+            initUI(); // Set up initial UI states (like hiding continue button if no save)
+            setupInputListeners(); // Attach event listeners for keyboard, touch, mouse, buttons
+
+            // Simulate loading and transition to main menu
+            setTimeout(() => {
+                loadingBar.style.width = '100%'; // Fill loading bar
+                setTimeout(() => {
+                    loadingScreen.style.opacity = 0; // Fade out loading screen
+                    loadingScreen.style.visibility = 'hidden';
+                    gameMenu.classList.add('active'); // Show main menu
+                }, 300); // Wait for bar animation
+            }, 100); // Short delay before starting "load"
+
+            // Start background animation loop (stars moving) even before game starts
+            gameState.lastTime = performance.now();
+            backgroundLoop();
+        }
+
+        // Separate loop for background elements (stars) when the main game isn't running
+        function backgroundLoop() {
+            const now = performance.now();
+            gameState.deltaTime = (now - gameState.lastTime) / 1000.0; // Calculate delta time
+            gameState.lastTime = now;
+
+            // Update stars based on delta time
+            updateStars(gameState.deltaTime);
+
+            // Clear canvas (important even in background loop)
+            ctx.fillStyle = '#000510';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Stars
+            drawStars();
+
+            // Continue the background loop if the main game isn't running
+            if (!gameState.running) {
+               requestAnimationFrame(backgroundLoop);
+            }
+        }
+
+
+        // Function to start a new game session
+        function startGame() {
+            console.log("Starting New Game...");
+            resetGameState(); // Reset score, level, wave, entities etc.
+            calculatePlayerStats(); // Apply potentially purchased upgrades to player stats
+            player = createPlayer(); // Create the player object with current stats
+            startLevel(1); // Begin level 1
+            gameState.running = true; // Flag the game loop to start
+            gameState.paused = false;
+            gameState.gameOver = false;
+
+            // Switch UI visibility
+            gameMenu.classList.remove('active');
+            gameOverMenu.classList.remove('active');
+            upgradeMenu.classList.remove('active');
+            pauseIndicator.classList.remove('active');
+            waveDisplay.style.display = 'block'; // Show wave counter
+
+            // Start the main game loop if it's not already running
+            if (!gameState.loopHandle) {
+               gameState.lastTime = performance.now(); // Reset timer for accurate first frame deltaTime
+               gameState.loopHandle = requestAnimationFrame(gameLoop);
+               console.log("Game loop started.");
+            }
+        }
+
+        // Function to continue a game (currently restarts with saved upgrades)
+        function continueGame() {
+            // In this version, "Continue" simply starts a new game but preserves
+            // the upgrades and credits loaded by loadGame().
+            // A more complex implementation would save/load player position, level, score etc.
+            console.log("Continuing Game (Starting Level 1 with saved upgrades/credits)...");
+            startGame(); // Uses the same start logic
+        }
+
+        // Resets dynamic game state variables for a new game
+        function resetGameState() {
+            gameState.currentLevel = 1;
+            gameState.currentWave = 1;
+            gameState.score = 0;
+            gameState.gameTime = 0;
+            gameState.gameOver = false;
+            gameState.paused = false;
+            gameState.currentBoss = null;
+            // Clear entity arrays
+            enemies = [];
+            bullets = [];
+            particles = [];
+            powerups = [];
+            // Reset UI displays
+            updateScoreUI();
+            updateLevelUI();
+            updateWaveUI(); // Will show Wave 1/X initially
+        }
+
+        // Creates the player object based on current playerStats
+        function createPlayer() {
+            return {
+                x: canvas.width / 2 - CONFIG.PLAYER_WIDTH / 2, // Center horizontally
+                y: canvas.height - CONFIG.PLAYER_HEIGHT - 30, // Position near bottom
+                width: CONFIG.PLAYER_WIDTH,
+                height: CONFIG.PLAYER_HEIGHT,
+                health: playerStats.maxHealth, // Start with full health based on stats
+                energy: playerStats.maxEnergy, // Start with full energy based on stats
+                lastShotTime: 0, // Timestamp of the last shot fired
+                isInvulnerable: false, // Is the player currently immune to damage?
+                invulnerableTimer: 0, // Remaining time for invulnerability (in ms)
+                dx: 0 // Horizontal velocity factor for visual tilting effect
+            };
+        }
+
+        // Generates the star objects for the background
+        function createStars() {
+            stars = []; // Clear existing stars
+            for (let i = 0; i < CONFIG.STAR_COUNT; i++) {
+                const layer = randInt(0, CONFIG.STAR_SPEED_FACTOR.length - 1); // Assign to a parallax layer
+                stars.push({
+                    x: rand(0, canvas.width), // Random horizontal position
+                    y: rand(0, canvas.height), // Random vertical position
+                    size: rand(0.5, CONFIG.STAR_MAX_SIZE), // Random size
+                    speed: CONFIG.STAR_SPEED_FACTOR[layer], // Speed based on layer
+                    layer: layer,
+                    opacity: rand(0.3, 1.0) // Random opacity for twinkling effect
+                });
+            }
+        }
+
+        // Initial setup for UI elements (e.g., hiding continue button)
+        function initUI() {
+            updateHealthUI(); // Set initial bar width
+            updateEnergyUI(); // Set initial bar width
+            // Continue button visibility is handled in loadGame()
+        }
+
+        // --- Game Loop ---
+        // The main function that runs every frame
+        function gameLoop(timestamp) {
+            // Stop the loop if the game state is no longer 'running'
+            if (!gameState.running) {
+                 gameState.loopHandle = null; // Clear the handle so it can be restarted
+                 console.log("Game loop stopped.");
+                 // If stopped, potentially run the background loop again
+                 if (!gameState.gameOver && !gameState.paused) { // Only if stopped cleanly (e.g., back to menu)
+                    requestAnimationFrame(backgroundLoop);
+                 }
+                 return;
+            }
+            // Request the next frame immediately
+            gameState.loopHandle = requestAnimationFrame(gameLoop);
+
+            // Calculate delta time (time since last frame in seconds)
+            const now = performance.now();
+            // Clamp deltaTime to prevent huge jumps if the tab loses focus or lags severely
+            gameState.deltaTime = clamp((now - gameState.lastTime) / 1000.0, 0, 0.05);
+            gameState.lastTime = now;
+            gameState.gameTime += gameState.deltaTime; // Accumulate total game time
+
+            // If paused, skip all updates and drawing except potentially a pause overlay
+            if (gameState.paused) {
+                // Draw pause indicator (already handled by CSS overlay)
+                return;
+            }
+
+            // --- Updates ---
+            // Update all game logic and object states based on deltaTime
+            handleInput();          // Process player input
+            updatePlayer(gameState.deltaTime);
+            updateBullets(gameState.deltaTime);
+            updateEnemies(gameState.deltaTime);
+            updateParticles(gameState.deltaTime);
+            updateStars(gameState.deltaTime); // Stars continue moving during gameplay
+            updatePowerups(gameState.deltaTime);
+            checkCollisions();      // Detect and handle collisions
+            spawnEnemies(gameState.deltaTime); // Spawn new enemies based on timers/waves
+            updateGameLogic(gameState.deltaTime); // Check for wave/level completion
+            updateScreenShake(gameState.deltaTime); // Update screen shake effect timer
+
+            // --- Drawing ---
+            // Render the current game state to the canvas
+            // Apply screen shake offset if active
+            const shakeX = gameState.screenShakeTime > 0 ? rand(-gameState.screenShakeMagnitude, gameState.screenShakeMagnitude) : 0;
+            const shakeY = gameState.screenShakeTime > 0 ? rand(-gameState.screenShakeMagnitude, gameState.screenShakeMagnitude) : 0;
+            ctx.save(); // Save the current canvas state (transformations, styles)
+            ctx.translate(shakeX, shakeY); // Apply the shake offset
+
+            // Clear canvas with background color
+            ctx.fillStyle = '#000510'; // Dark space blue/black
+            ctx.fillRect(-shakeX, -shakeY, canvas.width, canvas.height); // Adjust clearRect for shake offset
+
+            // Draw Background Elements first
+            drawStars();
+
+            // Draw Game Objects (order matters for layering)
+            drawPowerups();
+            drawEnemies();
+            drawPlayer();
+            drawBullets();
+            drawParticles();
+
+            // Restore canvas state to remove shake offset for subsequent frames/UI
+            ctx.restore();
+
+            // --- UI Updates ---
+            // Update HTML UI elements (health/energy bars are updated dynamically)
+            // Score, Level, Wave are updated only when their values change (in addScore, startLevel, startWave etc.)
+
+            // --- Check Game Over Condition ---
+            if (player.health <= 0 && !gameState.gameOver) {
+                triggerGameOver(); // Initiate game over sequence
+            }
+        }
+
+        // --- Update Functions ---
+        // Functions responsible for updating the state of different game elements each frame
+
+        function updatePlayer(dt) {
+            // Player Movement based on input state
+            let targetX = player.x;
+            if (input.left) targetX -= playerStats.speed * dt * 100; // Multiply by 100 for sensible speed values
+            if (input.right) targetX += playerStats.speed * dt * 100;
+            // Apply movement and clamp to screen bounds
+            player.x = clamp(targetX, 0, canvas.width - player.width);
+
+            // Calculate visual tilt based on movement direction (smooth transition using lerp)
+            if (input.left && !input.right) player.dx = lerp(player.dx, -1, dt * 10); // Tilt left
+            else if (input.right && !input.left) player.dx = lerp(player.dx, 1, dt * 10); // Tilt right
+            else player.dx = lerp(player.dx, 0, dt * 10); // Straighten up
+
+            // Player Firing based on input and fire rate cooldown
+            const now = performance.now();
+            if (input.fire && (now - player.lastShotTime) >= playerStats.fireRate) {
+                // Spawn a bullet originating from the player ship's center-top
+                spawnBullet(player.x + player.width / 2, player.y, true); // 'true' indicates player bullet
+                player.lastShotTime = now; // Record the time of this shot
+                playSound('shoot'); // Play shooting sound effect (if enabled)
+            }
+
+            // Energy Regeneration
+            player.energy = clamp(player.energy + playerStats.energyRegen * dt, 0, playerStats.maxEnergy);
+
+            // Invulnerability Timer
+            if (player.isInvulnerable) {
+                player.invulnerableTimer -= dt * 1000; // Decrease timer (ms)
+                if (player.invulnerableTimer <= 0) {
+                    player.isInvulnerable = false; // End invulnerability
+                }
+            }
+             // Update UI bars frequently for smooth regen display
+             updateHealthUI();
+             updateEnergyUI();
+        }
+
+        function updateBullets(dt) {
+            // Iterate backwards through the bullets array for safe removal
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const bullet = bullets[i];
+                // Move bullet based on its direction and speed
+                bullet.y += bullet.speed * dt * 100 * bullet.directionY;
+                bullet.x += bullet.speed * dt * 100 * bullet.directionX;
+
+                // Remove bullets that go off-screen
+                if (bullet.y < -bullet.height || bullet.y > canvas.height || bullet.x < -bullet.width || bullet.x > canvas.width) {
+                    bullets.splice(i, 1); // Remove the bullet from the array
+                }
+            }
+        }
+
+        function updateEnemies(dt) {
+            // Update the boss separately if it exists
+            if (gameState.currentBoss) {
+                // Assuming boss object has its own specific update logic
+                updateBoss(gameState.currentBoss, dt); // Pass boss object and dt
+            }
+
+            // Iterate backwards for safe removal
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                const enemy = enemies[i];
+                // Call the specific AI update function assigned to this enemy type
+                if (enemy.aiUpdate) {
+                    enemy.aiUpdate(enemy, dt);
+                } else {
+                    // Default basic movement if no AI function assigned (e.g., move straight down)
+                     enemy.y += (enemy.speed || 1) * dt * 60;
+                }
+
+
+                // Basic off-screen cleanup (remove enemies far outside bounds)
+                if (enemy.y > canvas.height + 100 || enemy.y < -200 || enemy.x < -200 || enemy.x > canvas.width + 200) {
+                    console.log("Enemy removed (off-screen).");
+                    enemies.splice(i, 1);
+                    // Ensure wave count decreases if an enemy flies off before being killed
+                    if (gameState.waveEnemyCount > 0 && !gameState.currentBoss) { // Don't decrement for boss
+                         gameState.waveEnemyCount--;
+                         updateWaveUI(); // Update UI immediately
+                    }
+                }
+            }
+        }
+
+        function updateParticles(dt) {
+            // Iterate backwards for safe removal
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                // Update position based on velocity
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
+                // Decrease lifespan
+                p.lifespan -= dt * 1000; // Lifespan is in ms
+                // Update opacity based on remaining lifespan
+                p.opacity = clamp(p.lifespan / p.initialLifespan, 0, 1);
+
+                // Apply simple physics (gravity and drag)
+                p.vy += 40 * dt; // Simulate gravity pulling particles down slightly
+                p.vx *= (1 - 0.5 * dt); // Simulate air drag slowing horizontal movement
+
+                // Remove particles whose lifespan has expired
+                if (p.lifespan <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        function updateStars(dt) {
+            // Move each star downwards based on its layer speed
+            for (const star of stars) {
+                star.y += star.speed * 50 * dt; // Adjust speed multiplier as needed
+                // If star goes off the bottom, reset its position to the top
+                if (star.y > canvas.height) {
+                    star.y = rand(-50, 0); // Reset slightly above the screen
+                    star.x = rand(0, canvas.width); // Give it a new horizontal position
+                    // Optional: Slightly change size/opacity on reset for more dynamism
+                    // star.size = rand(0.5, CONFIG.STAR_MAX_SIZE);
+                    // star.opacity = rand(0.3, 1.0);
+                }
+            }
+        }
+
+        function updatePowerups(dt) {
+            // Iterate backwards for safe removal
+            for (let i = powerups.length - 1; i >= 0; i--) {
+                const pu = powerups[i];
+                // Move powerup downwards
+                pu.y += pu.speed * dt;
+                // Add a gentle rotation visual effect
+                pu.angle += dt * 2; // Radians per second
+
+                // Remove powerups that go off the bottom of the screen
+                if (pu.y > canvas.height + pu.size) {
+                    powerups.splice(i, 1);
+                }
+            }
+        }
+
+        function updateGameLogic(dt) {
+            // Check for wave/level completion conditions
+            // Condition: No enemies left on screen AND the wave spawn count is zero AND no boss is active
+            if (gameState.waveEnemyCount <= 0 && enemies.length === 0 && !gameState.currentBoss) {
+                // Check if the completed wave was the last one for the current level
+                if (gameState.currentWave >= CONFIG.WAVES_PER_LEVEL) {
+                    // Check if this level is a boss level
+                    if ((gameState.currentLevel + 1) % CONFIG.BOSS_SPAWN_LEVEL_INTERVAL === 0) { // Check NEXT level number for boss interval
+                         // Spawn the boss instead of advancing directly
+                         spawnBoss();
+                         // Game logic will pause here until boss is defeated (handled in enemyKilled)
+                    } else {
+                         // Advance to the next level (starting at wave 1)
+                         startLevel(gameState.currentLevel + 1);
+                    }
+                } else {
+                    // Advance to the next wave within the current level
+                    startWave(gameState.currentWave + 1);
+                }
+            }
+        }
+
+        function updateScreenShake(dt) {
+            // Decrease screen shake timer
+            if (gameState.screenShakeTime > 0) {
+                gameState.screenShakeTime -= dt * 1000;
+                // If timer runs out, reset magnitude
+                if (gameState.screenShakeTime <= 0) {
+                    gameState.screenShakeMagnitude = 0;
+                }
+            }
+        }
+
+        // --- Spawning Functions ---
+        // Functions responsible for creating new game objects
+
+        // Spawns a bullet object
+        function spawnBullet(x, y, isPlayerBullet, directionX = 0, directionY = -1, speed = CONFIG.PLAYER_BASE_BULLET_SPEED, color = '#00FFFF', damage = playerStats.bulletDamage, width = 5, height = 15) {
+            // Customize properties based on whether it's a player or enemy bullet
+            if (isPlayerBullet) {
+                y -= 10; // Adjust start position slightly above player nose
+                x -= width / 2; // Center the bullet horizontally relative to spawn point
+                speed = CONFIG.PLAYER_BASE_BULLET_SPEED; // Use player's base bullet speed (could be upgraded)
+                color = '#0FF';//'#40E0D0'; // Player bullet color (Cyan/Turquoise) - Use Cyan for better visibility contrast
+                damage = playerStats.bulletDamage; // Use player's current damage stat
+                width = 5;
+                height = 15;
+            } else {
+                // Default properties for enemy bullets (can be overridden in spawn call)
+                color = color || '#FF4136'; // Default enemy bullet color (Red)
+                width = width || 6;
+                height = height || 6;
+            }
+
+            // Add the new bullet object to the bullets array
+            bullets.push({
+                x: x,
+                y: y,
+                width: width,
+                height: height,
+                speed: speed,
+                damage: damage,
+                isPlayerBullet: isPlayerBullet, // Flag to distinguish bullet type
+                directionX: directionX, // Horizontal direction component (-1 to 1)
+                directionY: directionY, // Vertical direction component (-1 to 1)
+                color: color
+            });
+        }
+
+        // Timer for controlling enemy spawn rate
+        let enemySpawnTimer = 0;
+        // Spawns enemies based on timers and wave progress
+        function spawnEnemies(dt) {
+            // Conditions to stop spawning: Boss active, or all enemies for the wave have been spawned
+            if (gameState.currentBoss || gameState.enemiesToSpawnThisWave <= 0) return;
+
+            // Decrease spawn timer
+            enemySpawnTimer -= dt * 1000;
+            // When timer reaches zero, spawn an enemy
+            if (enemySpawnTimer <= 0) {
+                // Calculate spawn rate based on level (gets faster over time)
+                const baseSpawnRate = CONFIG.ENEMY_SPAWN_BASE_RATE;
+                const levelScaling = Math.pow(CONFIG.ENEMY_SPAWN_RATE_SCALING, gameState.currentLevel - 1);
+                const currentSpawnRate = baseSpawnRate * levelScaling;
+                // Reset timer with some randomness
+                enemySpawnTimer = rand(currentSpawnRate * 0.8, currentSpawnRate * 1.2);
+
+                // --- Determine Enemy Type to Spawn ---
+                // Example logic: Introduce new types based on level, with increasing probability
+                let type = 'fighter'; // Default type
+                const randomRoll = Math.random();
+                if (gameState.currentLevel >= 4 && randomRoll < 0.2) { // 20% chance for Cruiser from level 4+
+                    type = 'cruiser';
+                } else if (gameState.currentLevel >= 2 && randomRoll < 0.5) { // 30% chance for Drone (0.5 - 0.2) from level 2+
+                    type = 'drone';
+                } // Otherwise, it remains 'fighter'
+
+                // Spawn the chosen enemy type
+                spawnEnemy(type);
+                // Decrement the count of enemies left to spawn for this wave
+                gameState.enemiesToSpawnThisWave--;
+            }
+        }
+
+        // Creates a specific enemy object based on type
+        function spawnEnemy(type) {
+            let enemyConfig = {}; // Object to hold the configuration for the new enemy
+            const spawnX = rand(50, canvas.width - 50); // Random horizontal spawn position within screen bounds
+
+            // Define properties for different enemy types
+            switch(type) {
+                case 'drone':
+                    enemyConfig = {
+                        type: 'drone',
+                        x: spawnX, y: -60, width: 45, height: 45,
+                        maxHealth: 40 + gameState.currentLevel * 5, health: 0, // Health set below
+                        speed: rand(1.5, 2.5),
+                        fireRate: Math.max(500, 1800 - gameState.currentLevel * 50), // Ensure minimum fire rate
+                        bulletSpeed: 5, damage: 10 + gameState.currentLevel * 1,
+                        scoreValue: 150, color: '#f39c12', // Orange
+                        aiUpdate: aiDroneUpdate, // Assign AI function
+                        shootCooldown: rand(500, 1500), // Initial random cooldown
+                        // Drone-specific AI state variables
+                        movementPhase: 0, // 0=entering, 1=hover/strafe, 2=attack run
+                        targetY: rand(100, 250), targetX: spawnX, hoverTime: rand(2, 4)
+                    };
+                    break;
+                case 'cruiser':
+                     enemyConfig = {
+                        type: 'cruiser',
+                        x: spawnX, y: -80, width: 70, height: 50,
+                        maxHealth: 100 + gameState.currentLevel * 15, health: 0,
+                        speed: 1, // Slow and steady
+                        fireRate: Math.max(800, 2500 - gameState.currentLevel * 60),
+                        bulletSpeed: 4, damage: 25 + gameState.currentLevel * 2,
+                        scoreValue: 300, color: '#9b59b6', // Purple
+                        aiUpdate: aiCruiserUpdate,
+                        shootCooldown: rand(1000, 2000),
+                        targetY: rand(150, 300) // Target height to stop at
+                    };
+                    break;
+                case 'fighter': // Default basic enemy
+                default:
+                    enemyConfig = {
+                        type: 'fighter',
+                        x: spawnX, y: -50, width: 40, height: 40,
+                        maxHealth: 20 + gameState.currentLevel * 4, health: 0,
+                        speed: rand(2, 3.5),
+                        fireRate: Math.max(600, 2200 - gameState.currentLevel * 40),
+                        bulletSpeed: 6, damage: 5 + gameState.currentLevel * 0.5,
+                        scoreValue: 100, color: '#e74c3c', // Red - Changed to a more distinct red
+                        aiUpdate: aiFighterUpdate,
+                        shootCooldown: rand(800, 1800),
+                        // Fighter-specific AI state variables
+                        movePattern: Math.random() < 0.3 ? 'sine' : 'straight', // Random movement pattern
+                        sineAmplitude: rand(30, 80), sineFrequency: rand(0.003, 0.006), initialX: spawnX
+                    };
+                    break;
+            }
+            // Set initial health to max health
+            enemyConfig.health = enemyConfig.maxHealth;
+            // Add the configured enemy to the enemies array
+            enemies.push(enemyConfig);
+        }
+
+        // Spawns multiple particle objects for visual effects
+        function spawnParticles(x, y, count, color = '#FFA500', baseSpeed = 200, spread = 360) {
+            const angleIncrement = (spread * Math.PI / 180) / count; // Angle between particles
+            const baseAngle = rand(0, 2 * Math.PI); // Randomize the starting direction of the spread
+
+            for (let i = 0; i < count; i++) {
+                 // Calculate angle for this particle, adding some randomness
+                 const angle = baseAngle + i * angleIncrement + rand(-angleIncrement / 3, angleIncrement / 3);
+                 // Randomize speed slightly around the base speed
+                 const speed = rand(baseSpeed * 0.5, baseSpeed * 1.5);
+                 // Calculate velocity components based on angle and speed
+                 const vx = Math.cos(angle) * speed;
+                 const vy = Math.sin(angle) * speed;
+                 // Store initial lifespan for opacity calculation
+                 const initialLifespan = rand(CONFIG.PARTICLE_LIFESPAN * 0.7, CONFIG.PARTICLE_LIFESPAN * 1.3);
+                 // Add the particle object to the particles array
+                 particles.push({
+                    x: x, y: y, // Starting position
+                    vx: vx, vy: vy, // Initial velocity
+                    size: rand(2, 5), // Random size
+                    color: color, // Color of the particle
+                    lifespan: initialLifespan,
+                    initialLifespan: initialLifespan,
+                    opacity: 1 // Start fully opaque
+                });
+            }
+        }
+
+        // Spawns a powerup object at a given location
+        function spawnPowerup(x, y) {
+             // Define available powerup types
+             const types = ['health', 'shield', 'rapid_fire', 'damage_boost'];
+             // Randomly select a type
+             const type = types[randInt(0, types.length - 1)];
+             let color, symbol;
+             // Assign color and symbol based on type (using distinct colors)
+             switch(type) {
+                 case 'health': color = '#1ABC9C'; symbol = '+'; break; // Turquoise for Health
+                 case 'shield': color = '#3498DB'; symbol = 'S'; break; // Blue for Shield
+                 case 'rapid_fire': color = '#F1C40F'; symbol = 'R'; break; // Yellow for Rapid Fire
+                 case 'damage_boost': color = '#E74C3C'; symbol = 'D'; break; // Red for Damage Boost
+             }
+
+             // Add the powerup object to the powerups array
+             powerups.push({
+                x: x, y: y,
+                size: 25, // Visual size
+                speed: 100, // Downward speed (pixels per second)
+                type: type, // Type identifier
+                color: color, // Base color
+                symbol: symbol, // Symbol displayed on the powerup
+                duration: 10000, // Duration for temporary boosts (ms)
+                angle: 0 // Current rotation angle for visual effect
+             });
+        }
+
+        // Spawns the boss enemy
+        function spawnBoss() {
+             console.log(`Spawning Boss for Level ${gameState.currentLevel}`);
+             gameState.waveEnemyCount = 1; // Treat the boss as the single 'enemy' for the wave count
+             gameState.enemiesToSpawnThisWave = 0; // Stop regular enemy spawns
+             waveDisplay.textContent = "BOSS INCOMING"; // Update UI
+
+             // --- Boss Configuration --- (Customize extensively!)
+             const bossBaseHealth = 500;
+             const bossLevelScaling = 150;
+             const bossMaxHealth = bossBaseHealth + gameState.currentLevel * bossLevelScaling;
+
+             gameState.currentBoss = {
+                type: 'boss',
+                x: canvas.width / 2 - 100, y: -200, // Start position off-screen top-center
+                width: 200, height: 150, // Boss dimensions
+                maxHealth: bossMaxHealth,
+                health: bossMaxHealth, // Start with full health
+                speed: 0.5, // Base movement speed factor
+                scoreValue: 5000 + gameState.currentLevel * 1000, // Score awarded for defeating
+                color: '#8e44ad', // Dark Purple boss color
+                aiUpdate: aiBossUpdate, // Assign the specific boss AI function
+                // Boss-specific state variables
+                phase: 0, // Current attack phase (0: Entering, 1: Pattern A, ...)
+                phaseTimer: 0, // Timer for actions within a phase
+                // Cooldown timers for different attack types
+                shootCooldowns: [rand(500, 1000), rand(200, 500), rand(1500, 2500)],
+                targetY: 150, // Target Y position for the boss on screen
+                // Health percentages at which the boss changes phase
+                healthThresholds: [0.66, 0.33],
+                isEntering: true // Flag indicating the boss is currently in its entrance sequence
+             };
+             // Add the boss object to the main enemies array so it's included in collision checks and drawing
+             enemies.push(gameState.currentBoss);
+             playSound('boss_spawn'); // Play boss arrival sound
+        }
+
+        // --- Enemy AI Examples ---
+        // Functions defining the behavior of different enemy types
+
+        // AI for the basic 'fighter' enemy
+        function aiFighterUpdate(enemy, dt) {
+            // Movement Pattern Logic
+            if (enemy.movePattern === 'sine') {
+                // Move downwards while oscillating horizontally
+                enemy.x = enemy.initialX + Math.sin(enemy.y * enemy.sineFrequency) * enemy.sineAmplitude;
+                enemy.y += enemy.speed * dt * 60; // Adjust speed scaling if needed
+            } else { // 'straight' pattern
+                // Move straight down
+                enemy.y += enemy.speed * dt * 60;
+            }
+
+            // Firing Logic
+            enemy.shootCooldown -= dt * 1000; // Decrease cooldown timer
+            // Fire if cooldown is ready and player is somewhat below the enemy
+            if (enemy.shootCooldown <= 0 && player.y > enemy.y - 50) { // Adjusted condition to fire sooner
+                // Spawn a bullet moving straight down
+                spawnBullet(enemy.x + enemy.width / 2, enemy.y + enemy.height, false, 0, 1, enemy.bulletSpeed, '#FF6347', enemy.damage); // Tomato Red bullet
+                enemy.shootCooldown = enemy.fireRate; // Reset cooldown
+                playSound('enemy_shoot');
+            }
+        }
+
+        // AI for the 'drone' enemy (more complex state machine)
+        function aiDroneUpdate(enemy, dt) {
+            // Movement State Machine
+            switch(enemy.movementPhase) {
+                case 0: // Phase 0: Entering and moving to hover position
+                    enemy.y = lerp(enemy.y, enemy.targetY, dt * 2); // Smoothly move towards target Y
+                    // Transition to next phase when close enough
+                    if (Math.abs(enemy.y - enemy.targetY) < 5) {
+                        enemy.movementPhase = 1; // Start hovering
+                        enemy.hoverTimer = enemy.hoverTime; // Set hover duration
+                        enemy.targetX = player.x; // Initial target for strafing (player's current X)
+                    }
+                    break;
+                case 1: // Phase 1: Hovering and Strafing
+                    enemy.hoverTimer -= dt; // Decrease hover timer
+                    // Gently strafe towards the player's general horizontal area
+                    enemy.targetX = lerp(enemy.targetX, player.x + rand(-50, 50), dt * 0.5); // Update target X smoothly
+                    enemy.x = lerp(enemy.x, enemy.targetX, dt * 1.5); // Move towards target X
+                    enemy.x = clamp(enemy.x, 0, canvas.width - enemy.width); // Keep within screen bounds
+                    // When hover time runs out, decide next action
+                    if (enemy.hoverTimer <= 0) {
+                        if (Math.random() < 0.4) { // 40% chance to find a new hover spot
+                            enemy.targetY = rand(100, 250); // Pick new Y
+                            enemy.hoverTime = rand(2, 4); // Pick new duration
+                            enemy.movementPhase = 0; // Go back to entering phase
+                        } else { // 60% chance to start an attack run
+                           enemy.movementPhase = 2; // Initiate dive
+                        }
+                    }
+                    break;
+                case 2: // Phase 2: Attack Run (Dive Down)
+                    enemy.y += enemy.speed * 1.5 * dt * 60; // Move downwards faster
+                    // Could add logic here to return to hovering after diving past player
+                    if (enemy.y > player.y + 100) {
+                        enemy.targetY = rand(100, 250); // Pick new hover spot
+                        enemy.hoverTime = rand(1, 3); // Shorter hover after attack
+                        enemy.movementPhase = 0;
+                    }
+                    break;
+            }
+
+            // Firing Logic (Drones fire more actively when not in the initial entering phase)
+            enemy.shootCooldown -= dt * 1000;
+            if (enemy.shootCooldown <= 0 && enemy.movementPhase !== 0 && player.y > enemy.y) { // Check player is below
+                 // Calculate angle towards the player's center
+                 const angle = Math.atan2(player.y - (enemy.y + enemy.height/2), player.x + player.width / 2 - (enemy.x + enemy.width / 2));
+                 const spread = 0.1; // Add slight inaccuracy (radians)
+                 const fireAngle = angle + rand(-spread, spread);
+                 // Calculate direction vectors
+                 const dirX = Math.cos(fireAngle);
+                 const dirY = Math.sin(fireAngle);
+
+                // Spawn a bullet aimed towards the player
+                spawnBullet(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, false, dirX, dirY, enemy.bulletSpeed, '#FFA500', enemy.damage); // Orange bullet
+                enemy.shootCooldown = enemy.fireRate; // Reset cooldown
+                playSound('enemy_shoot');
+            }
+        }
+
+        // AI for the 'cruiser' enemy
+        function aiCruiserUpdate(enemy, dt) {
+            // Simple downward movement until it reaches its target Y position
+            if (enemy.y < enemy.targetY) {
+               enemy.y += enemy.speed * dt * 60;
+            } else {
+                // Optional: Add slight horizontal drift once stopped
+                enemy.x += Math.sin(gameState.gameTime * 0.5 + enemy.initialX) * 0.5; // Slow drift
+            }
+
+            // Firing Logic (Fires less frequently, potentially powerful shots)
+            enemy.shootCooldown -= dt * 1000;
+            // Only fire when near the target Y position and player is below
+            if (enemy.shootCooldown <= 0 && enemy.y >= enemy.targetY - 10 && player.y > enemy.y) {
+                // Spawn two bullets from different points
+                spawnBullet(enemy.x + enemy.width * 0.25, enemy.y + enemy.height, false, 0, 1, enemy.bulletSpeed, '#FF00FF', enemy.damage); // Magenta bullet
+                spawnBullet(enemy.x + enemy.width * 0.75, enemy.y + enemy.height, false, 0, 1, enemy.bulletSpeed, '#FF00FF', enemy.damage); // Magenta bullet
+                enemy.shootCooldown = enemy.fireRate; // Reset cooldown
+                playSound('enemy_shoot_heavy'); // Use a different sound?
+            }
+        }
+
+        // AI for the Boss enemy (complex state machine based on phase)
+        function aiBossUpdate(boss, dt) {
+             boss.phaseTimer += dt; // Increment timer for phase-specific actions
+
+             // --- Phase 0: Entry Sequence ---
+             if (boss.isEntering) {
+                 boss.y = lerp(boss.y, boss.targetY, dt * 1.0); // Smoothly move onto the screen
+                 // Transition to phase 1 when close enough to target Y
+                 if (Math.abs(boss.y - boss.targetY) < 5) {
+                     boss.isEntering = false; // End entry sequence
+                     boss.phase = 1; // Start phase 1 attack patterns
+                     boss.phaseTimer = 0; // Reset phase timer
+                     console.log("Boss Entered, Starting Phase 1");
+                 }
+                 return; // Do nothing else while entering
+             }
+
+             // --- Health-Based Phase Transitions ---
+             const healthPercent = boss.health / boss.maxHealth;
+             // Transition from Phase 1 to 2
+             if (boss.phase === 1 && healthPercent <= boss.healthThresholds[0]) {
+                 boss.phase = 2;
+                 boss.phaseTimer = 0; // Reset timer for the new phase
+                 console.log("Boss Phase 2 Triggered");
+                 // Visual/Audio cue for phase change
+                 spawnParticles(boss.x + boss.width / 2, boss.y + boss.height / 2, 50, '#FFFFFF', 300); // White particle burst
+                 triggerScreenShake(CONFIG.SCREEN_SHAKE_MAGNITUDE * 1.5, CONFIG.SCREEN_SHAKE_DURATION * 1.5);
+                 playSound('boss_phase_change');
+             }
+             // Transition from Phase 2 to 3
+             else if (boss.phase === 2 && healthPercent <= boss.healthThresholds[1]) {
+                 boss.phase = 3;
+                 boss.phaseTimer = 0;
+                 console.log("Boss Phase 3 Triggered (Final Phase)");
+                 spawnParticles(boss.x + boss.width / 2, boss.y + boss.height / 2, 80, '#FFD700', 400); // Gold particle burst
+                 triggerScreenShake(CONFIG.SCREEN_SHAKE_MAGNITUDE * 2, CONFIG.SCREEN_SHAKE_DURATION * 2);
+                 playSound('boss_phase_change');
+             }
+
+             // --- Boss Movement --- (Example: Gentle side-to-side sine wave)
+             // Keep boss centered horizontally while moving side to side
+             const horizontalRange = canvas.width * 0.3; // How far side-to-side it moves
+             boss.x = (canvas.width / 2 - boss.width / 2) + Math.sin(gameState.gameTime * 0.5) * horizontalRange;
+
+             // --- Attack Patterns based on Phase ---
+             // Decrease cooldown timers for all attacks
+             boss.shootCooldowns = boss.shootCooldowns.map(cd => Math.max(0, cd - dt * 1000));
+
+             switch(boss.phase) {
+                 case 1: // Phase 1 Attack Pattern
+                     // Attack 1: Spread shot
+                     if (boss.shootCooldowns[0] <= 0) {
+                         const spreadAngle = Math.PI / 8; // Angle between bullets in the spread
+                         const numBullets = 5;
+                         const baseAngle = Math.PI / 2; // Straight down
+                         for (let i = -(numBullets-1)/2; i <= (numBullets-1)/2; i++) {
+                             const angle = baseAngle + i * spreadAngle;
+                             spawnBullet(boss.x + boss.width / 2, boss.y + boss.height * 0.8, false, Math.cos(angle), Math.sin(angle), 4, '#ADFF2F', 15); // GreenYellow bullet
+                         }
+                         boss.shootCooldowns[0] = 2000; // Reset cooldown for this attack
+                         playSound('boss_attack_1');
+                     }
+                     // Attack 2: Single targeted shot
+                     if (boss.shootCooldowns[1] <= 0) {
+                          const angle = Math.atan2(player.y - (boss.y + boss.height * 0.8), player.x + player.width / 2 - (boss.x + boss.width / 2));
+                          spawnBullet(boss.x + boss.width / 2, boss.y + boss.height * 0.8, false, Math.cos(angle), Math.sin(angle), 6, '#FF69B4', 20); // HotPink bullet
+                          boss.shootCooldowns[1] = 800; // Reset cooldown
+                          playSound('boss_attack_2');
+                     }
+                     break;
+
+                 case 2: // Phase 2 Attack Pattern
+                      // Attack 1: Rapid fire streams from sides
+                      if (boss.shootCooldowns[0] <= 0) {
+                         // Fire only during specific intervals of the phase timer for bursts
+                         if (boss.phaseTimer % 1.5 < 0.8) { // Fire for 0.8s, pause 0.7s
+                             spawnBullet(boss.x + boss.width * 0.1, boss.y + boss.height * 0.7, false, 0, 1, 7, '#1E90FF', 12); // DodgerBlue bullet
+                             spawnBullet(boss.x + boss.width * 0.9, boss.y + boss.height * 0.7, false, 0, 1, 7, '#1E90FF', 12);
+                             boss.shootCooldowns[0] = 150; // Very fast firing interval during burst
+                             playSound('boss_attack_fast');
+                         } else {
+                             // Ensure a longer pause between bursts if the timer is in the 'pause' part
+                             boss.shootCooldowns[0] = Math.max(boss.shootCooldowns[0], 200); // Prevent immediate refire after pause
+                         }
+                      }
+                      // Attack 2: Slow, large projectile
+                      if (boss.shootCooldowns[2] <= 0) {
+                           // Spawn a larger, slower, high-damage bullet
+                           spawnBullet(boss.x + boss.width/2, boss.y + boss.height * 0.8, false, 0, 1, 3, '#DC143C', 35, 20, 20); // Crimson, size 20x20
+                           boss.shootCooldowns[2] = 3000; // Long cooldown
+                           playSound('boss_attack_heavy');
+                      }
+                      break;
+
+                 case 3: // Phase 3 Attack Pattern (Final Phase - Combine and Intensify)
+                     // Attack 1: Faster, wider Spread shot
+                     if (boss.shootCooldowns[0] <= 0) {
+                         const spreadAngle = Math.PI / 7; // Wider angle
+                         const numBullets = 7;
+                         const baseAngle = Math.PI / 2;
+                         for (let i = -(numBullets-1)/2; i <= (numBullets-1)/2; i++) {
+                             const angle = baseAngle + i * spreadAngle;
+                             spawnBullet(boss.x + boss.width/2, boss.y + boss.height * 0.8, false, Math.cos(angle), Math.sin(angle), 5, '#FF4500', 18); // OrangeRed bullet
+                         }
+                         boss.shootCooldowns[0] = 1500; // Faster cooldown than phase 1
+                         playSound('boss_attack_1');
+                     }
+                     // Attack 2: Faster double targeted shots (or simple homing if implemented)
+                      if (boss.shootCooldowns[1] <= 0) {
+                          const angle = Math.atan2(player.y - (boss.y + boss.height*0.8), player.x + player.width/2 - (boss.x + boss.width/2));
+                          // Fire two targeted shots simultaneously
+                          spawnBullet(boss.x + boss.width * 0.4, boss.y + boss.height * 0.8, false, Math.cos(angle), Math.sin(angle), 7, '#FFFF00', 22); // Yellow bullet
+                          spawnBullet(boss.x + boss.width * 0.6, boss.y + boss.height * 0.8, false, Math.cos(angle), Math.sin(angle), 7, '#FFFF00', 22); // Yellow bullet
+                          boss.shootCooldowns[1] = 500; // Very fast cooldown
+                          playSound('boss_attack_2');
+                     }
+                     // Attack 3: Bullet Rain (Periodic)
+                      if (boss.shootCooldowns[2] <= 0) {
+                          // Spawn several bullets randomly across the boss's width, moving downwards
+                          for(let i=0; i< 8; i++) {
+                              spawnBullet(rand(boss.x, boss.x + boss.width), boss.y + boss.height, false, rand(-0.1, 0.1), 1, rand(4,6), '#DA70D6', 10); // Orchid rain bullet
+                          }
+                          boss.shootCooldowns[2] = 2500; // Cooldown for rain attack
+                          playSound('boss_attack_rain');
+                      }
+                      break;
+             }
+        }
+
+
+        // --- Collision Detection ---
+        // Functions to check for and handle collisions between game objects
+
+        function checkCollisions() {
+            // --- Player Bullets vs Enemies ---
+            // Iterate through player bullets
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const bullet = bullets[i];
+                if (!bullet.isPlayerBullet) continue; // Skip enemy bullets
+
+                // Check collision against each enemy
+                for (let j = enemies.length - 1; j >= 0; j--) {
+                    const enemy = enemies[j];
+                    // If collision detected
+                    if (isColliding(bullet, enemy)) {
+                        // Apply damage to enemy
+                        enemy.health -= bullet.damage;
+                        // Create impact particle effect
+                        spawnParticles(bullet.x, bullet.y, 3, '#FFFFFF', 100, 180); // Small white spark
+                        // Remove the bullet
+                        bullets.splice(i, 1);
+
+                        // Check if enemy is destroyed
+                        if (enemy.health <= 0) {
+                             enemyKilled(enemy, j); // Handle enemy death (score, explosion, powerup drop)
+                        } else {
+                             playSound('hit_enemy'); // Play hit sound
+                             // Optional: Add visual feedback like flashing the enemy sprite
+                             // enemy.flashTimer = 0.1; // Needs corresponding draw logic
+                        }
+                        // Bullet hit an enemy, stop checking this bullet against other enemies
+                        break;
+                    }
+                }
+            }
+
+            // --- Enemy Bullets vs Player ---
+            // Iterate through enemy bullets
+            for (let i = bullets.length - 1; i >= 0; i--) {
+                const bullet = bullets[i];
+                // Skip player bullets and check if player is currently invulnerable
+                if (bullet.isPlayerBullet || player.isInvulnerable) continue;
+
+                // If collision detected with player
+                if (isColliding(bullet, player)) {
+                    playerHit(bullet.damage); // Handle player taking damage
+                    // Create impact particle effect on player
+                    spawnParticles(bullet.x, bullet.y, 5, '#FF8C00', 150); // Orange impact spark
+                    // Remove the bullet
+                    bullets.splice(i, 1);
+                    // Player was hit, stop checking this bullet
+                    break;
+                }
+            }
+
+            // --- Enemies vs Player (Ramming) ---
+            // Check only if player is not invulnerable
+            if (!player.isInvulnerable) {
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    const enemy = enemies[i];
+                    // If collision detected
+                    if (isColliding(enemy, player)) {
+                        // Apply significant damage to player for ramming
+                        playerHit(enemy.damage * 2 + 10); // Base ramming damage + scaled enemy damage
+                        // Also damage the enemy
+                        enemy.health -= 50; // Enemy takes damage from collision too
+                        // Create larger collision particle effect
+                        spawnParticles(player.x + player.width/2, player.y + player.height/2, 15, '#FF0000', 200); // Red collision burst
+                        // Check if the enemy was destroyed by the collision
+                        if (enemy.health <= 0) {
+                            enemyKilled(enemy, i);
+                        }
+                        // Player was hit, becomes invulnerable, stop checking other enemies for ramming this frame
+                        break;
+                    }
+                }
+            }
+
+            // --- Player vs Powerups ---
+            // Iterate through powerups
+            for (let i = powerups.length - 1; i >= 0; i--) {
+                const pu = powerups[i];
+                // Use a slightly larger hitbox for easier pickup
+                const pickupArea = {
+                    x: pu.x - pu.size * 0.75, // Center the hitbox
+                    y: pu.y - pu.size * 0.75,
+                    width: pu.size * 1.5,
+                    height: pu.size * 1.5
+                 };
+                // If player collides with the pickup area
+                if (isColliding(pickupArea, player)) {
+                    applyPowerup(pu.type, pu.duration); // Apply the powerup effect
+                    powerups.splice(i, 1); // Remove the powerup
+                    playSound('powerup'); // Play powerup collection sound
+                    // Stop checking other powerups this frame (player can only collect one at a time)
+                    break;
+                }
+            }
+        }
+
+        // Simple Axis-Aligned Bounding Box (AABB) collision detection
+        function isColliding(rect1, rect2) {
+            return rect1.x < rect2.x + rect2.width &&
+                   rect1.x + rect1.width > rect2.x &&
+                   rect1.y < rect2.y + rect2.height &&
+                   rect1.y + rect1.height > rect2.y;
+        }
+
+        // Handles the player taking damage
+        function playerHit(damage) {
+            // Ignore damage if player is invulnerable
+            if (player.isInvulnerable) return;
+
+            console.log(`Player hit, damage: ${damage}`);
+            // Trigger screen shake effect
+            triggerScreenShake(CONFIG.SCREEN_SHAKE_MAGNITUDE, CONFIG.SCREEN_SHAKE_DURATION);
+
+            // --- Damage Absorption Logic ---
+            // 1. Damage Shield Energy First
+            if (player.energy > 0) {
+                const energyDamage = Math.min(player.energy, damage); // Damage absorbed by shield
+                player.energy -= energyDamage;
+                damage -= energyDamage; // Reduce damage that will be applied to health
+                playSound('shield_hit'); // Play shield hit sound
+            }
+
+            // 2. Apply Remaining Damage to Health
+            if (damage > 0) {
+                player.health -= damage;
+                player.health = Math.max(0, player.health); // Prevent health going below zero
+                playSound('player_hit'); // Play health hit sound
+            }
+
+            // Grant brief invulnerability period after being hit
+             player.isInvulnerable = true;
+             player.invulnerableTimer = CONFIG.PLAYER_INVULN_TIME;
+
+            // Update UI immediately to reflect changes
+            updateHealthUI();
+            updateEnergyUI();
+        }
+
+        // Handles actions when an enemy is destroyed
+        function enemyKilled(enemy, index) {
+            // Spawn explosion particle effect at enemy's center
+            spawnParticles(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, randInt(15, 25), enemy.color, 250);
+            playSound('explosion'); // Play explosion sound
+
+            // Add score to player's total
+            addScore(enemy.scoreValue);
+
+            // Chance to drop a powerup
+            if (Math.random() < CONFIG.POWERUP_DROP_CHANCE) {
+                spawnPowerup(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
+            }
+
+            // --- Boss Defeated Specific Logic ---
+            if (enemy === gameState.currentBoss) { // Check if the killed enemy was the boss
+                console.log("Boss Defeated!");
+                addScore(gameState.currentBoss.scoreValue * 2); // Add extra bonus score for boss
+                // Spawn a larger, more dramatic explosion
+                spawnParticles(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2, 100, '#FFFFFF', 500);
+                // Trigger a more intense screen shake
+                triggerScreenShake(CONFIG.SCREEN_SHAKE_MAGNITUDE * 2, CONFIG.SCREEN_SHAKE_DURATION * 3);
+                gameState.currentBoss = null; // Clear the boss reference
+                playSound('boss_defeat');
+                // Immediately advance to the next level after boss defeat (overrides normal wave logic)
+                // This happens implicitly now because waveEnemyCount becomes 0, and updateGameLogic advances the level.
+            }
+
+            // Remove the enemy object from the array
+            enemies.splice(index, 1);
+
+            // Decrement the wave enemy count (unless it was the boss)
+            if (gameState.waveEnemyCount > 0 && enemy.type !== 'boss') {
+                gameState.waveEnemyCount--;
+            }
+            // Update the wave counter UI display
+            updateWaveUI();
+        }
+
+        // Applies the effect of a collected powerup
+        function applyPowerup(type, duration) {
+            console.log(`Powerup collected: ${type}`);
+            let effectColor = '#FFFFFF'; // Default particle color
+
+            switch(type) {
+                case 'health':
+                    // Heal player by a percentage of max health
+                    const healAmount = playerStats.maxHealth * 0.25;
+                    player.health = clamp(player.health + healAmount, 0, playerStats.maxHealth);
+                    updateHealthUI(); // Update UI immediately
+                    effectColor = '#1ABC9C'; // Turquoise
+                    break;
+                case 'shield':
+                    // Restore a percentage of max shield energy
+                    const energyAmount = playerStats.maxEnergy * 0.5;
+                    player.energy = clamp(player.energy + energyAmount, 0, playerStats.maxEnergy);
+                    updateEnergyUI(); // Update UI immediately
+                    effectColor = '#3498DB'; // Blue
+                    break;
+                case 'rapid_fire':
+                    // Temporarily decrease fire rate interval (increase fire speed)
+                    const originalFireRate = playerStats.fireRate; // Store original value
+                    const boostFactorFR = 0.5; // Halve the interval (double the speed)
+                    playerStats.fireRate *= boostFactorFR;
+                    // Set a timeout to restore the original fire rate after the duration
+                    setTimeout(() => {
+                        // Check if another rapid fire wasn't picked up extending duration
+                        if (playerStats.fireRate === originalFireRate * boostFactorFR) {
+                           playerStats.fireRate = originalFireRate;
+                           console.log("Rapid fire ended");
+                        }
+                    }, duration);
+                    effectColor = '#F1C40F'; // Yellow
+                    break;
+                case 'damage_boost':
+                    // Temporarily increase bullet damage
+                    const originalDamage = playerStats.bulletDamage; // Store original value
+                    const boostFactorDmg = 1.5; // 50% damage increase
+                    playerStats.bulletDamage *= boostFactorDmg;
+                    // Set a timeout to restore original damage after duration
+                    setTimeout(() => {
+                         if (playerStats.bulletDamage === originalDamage * boostFactorDmg) {
+                            playerStats.bulletDamage = originalDamage;
+                            console.log("Damage boost ended");
+                         }
+                    }, duration);
+                    effectColor = '#E74C3C'; // Red
+                    break;
+            }
+            // Spawn visual effect particles for collecting the powerup
+            spawnParticles(player.x + player.width/2, player.y + player.height/2, 15, effectColor, 150);
+        }
+
+        // --- Drawing Functions ---
+        // Functions responsible for rendering game elements onto the canvas
+
+        function drawPlayer() {
+            // Apply flashing effect when invulnerable
+            const alpha = (player.isInvulnerable && Math.floor(player.invulnerableTimer / 100) % 2 === 0) ? 0.5 : 1.0;
+            ctx.globalAlpha = alpha; // Set transparency
+
+            ctx.save(); // Save current state (especially globalAlpha)
+            // Apply visual tilt transformation
+            ctx.translate(player.x + player.width / 2, player.y + player.height / 2); // Move origin to player center
+            ctx.rotate(player.dx * 0.15); // Rotate based on tilt factor (max 0.15 radians)
+            ctx.translate(-(player.x + player.width / 2), -(player.y + player.height / 2)); // Move origin back
+
+            // --- Draw Player Ship Shape --- (Example: Simple triangle)
+            ctx.fillStyle = '#3498db'; // Player's base color (Blue)
+            ctx.beginPath();
+            ctx.moveTo(player.x + player.width / 2, player.y); // Nose tip
+            ctx.lineTo(player.x, player.y + player.height * 0.8); // Bottom-left corner
+            ctx.lineTo(player.x + player.width * 0.3, player.y + player.height); // Left engine area
+            ctx.lineTo(player.x + player.width * 0.7, player.y + player.height); // Right engine area
+            ctx.lineTo(player.x + player.width, player.y + player.height * 0.8); // Bottom-right corner
+            ctx.closePath(); // Connect back to nose tip implicitly (or explicitly if needed)
+            ctx.fill();
+
+            // Draw Cockpit Detail
+            ctx.fillStyle = '#ecf0f1'; // Light grey/white color
+            ctx.fillRect(player.x + player.width * 0.4, player.y + player.height * 0.1, player.width * 0.2, player.height * 0.2);
+
+            // Draw Engine Glow (if moving or game active)
+            if(input.left || input.right || !gameState.paused) {
+                const engineGlowIntensity = Math.abs(player.dx) * 0.3 + 0.4; // Glow brighter when turning
+                ctx.fillStyle = `rgba(255, 165, 0, ${engineGlowIntensity})`; // Orange glow, variable intensity
+                ctx.beginPath();
+                // Draw ellipse below the ship for engine effect
+                ctx.ellipse(player.x + player.width * 0.5, player.y + player.height * 1.1, player.width * 0.2, player.height * 0.2, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            ctx.restore(); // Restore transformations and globalAlpha
+            // Ensure globalAlpha is reset if it wasn't already 1.0
+            if (ctx.globalAlpha !== 1.0) {
+                 ctx.globalAlpha = 1.0;
+            }
+        }
+
+        function drawBullets() {
+            // Iterate through all bullets and draw them
+            bullets.forEach(bullet => {
+                ctx.fillStyle = bullet.color; // Set bullet color
+                // Draw simple rectangle for bullet
+                ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+
+                // Optional: Add a subtle glow effect using shadow properties
+                // ctx.shadowBlur = 5;
+                // ctx.shadowColor = bullet.color;
+                // ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height); // Draw again with shadow
+                // ctx.shadowBlur = 0; // Reset shadow blur
+            });
+        }
+
+        function drawEnemies() {
+            // Iterate through all enemies and draw them
+            enemies.forEach(enemy => {
+                // --- Draw Enemy Shape --- (Example: Simple Rectangles - Customize per type!)
+                ctx.fillStyle = enemy.color; // Set enemy color
+                ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+
+                // Optional: Add details based on enemy type
+                // if (enemy.type === 'drone') { ... draw drone details ... }
+                // if (enemy.type === 'cruiser') { ... draw cruiser details ... }
+
+                // --- Draw Health Bar Above Enemy (if damaged or boss) ---
+                const isBoss = (enemy === gameState.currentBoss);
+                if (isBoss || enemy.health < enemy.maxHealth) { // Show always for boss, or if damaged
+                    const barWidth = enemy.width * 0.8;
+                    const barHeight = isBoss ? 8 : 5; // Make boss health bar thicker
+                    const barX = enemy.x + (enemy.width - barWidth) / 2; // Center the bar
+                    const barY = enemy.y - barHeight - (isBoss ? 8 : 5); // Position above enemy
+                    const healthPercent = clamp(enemy.health / enemy.maxHealth, 0, 1);
+
+                    // Draw background of health bar
+                    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                    ctx.fillRect(barX, barY, barWidth, barHeight);
+                    // Draw foreground (health fill) with color based on health percentage
+                    // Using distinct colors: Blue (high), Yellow (medium), Red (low)
+                    ctx.fillStyle = healthPercent > 0.6 ? '#2980b9' : (healthPercent > 0.3 ? '#f1c40f' : '#c0392b'); // Blue/Yellow/Dark Red
+                    ctx.fillRect(barX, barY, barWidth * healthPercent, barHeight);
+                }
+            });
+        }
+
+        function drawParticles() {
+            // Iterate through particles and draw them
+            particles.forEach(p => {
+                ctx.globalAlpha = p.opacity; // Set opacity based on particle state
+                ctx.fillStyle = p.color; // Set particle color
+                ctx.beginPath();
+                // Draw particle as a circle, size potentially shrinking with opacity
+                ctx.arc(p.x, p.y, p.size * p.opacity, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1.0; // Reset global alpha after drawing all particles
+        }
+
+        function drawStars() {
+            // Iterate through stars and draw them
+            stars.forEach(star => {
+                ctx.fillStyle = `rgba(255, 255, 255, ${star.opacity})`; // White with variable opacity
+                ctx.beginPath();
+                // Draw star as a small circle
+                ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        function drawPowerups() {
+            // Set font style for drawing symbols on powerups
+            ctx.font = 'bold 18px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            // Iterate through powerups and draw them
+            powerups.forEach(pu => {
+                ctx.save(); // Save canvas state before transformations
+                // Move origin to powerup center and apply rotation
+                ctx.translate(pu.x, pu.y);
+                ctx.rotate(pu.angle);
+
+                // --- Draw Powerup Visual ---
+                // 1. Outer pulsating glow effect
+                const pulseFactor = Math.sin(gameState.gameTime * 5) * 0.15 + 0.85; // Pulsates between 0.7 and 1.0 scale
+                ctx.fillStyle = `rgba(${hexToRgb(pu.color)}, 0.3)`; // Semi-transparent glow color
+                ctx.beginPath();
+                ctx.arc(0, 0, pu.size * 0.8 * pulseFactor, 0, Math.PI * 2); // Draw pulsating circle
+                ctx.fill();
+
+                // 2. Solid inner circle
+                ctx.fillStyle = pu.color; // Solid base color
+                ctx.beginPath();
+                ctx.arc(0, 0, pu.size * 0.5, 0, Math.PI * 2); // Draw inner circle
+                ctx.fill();
+
+                // 3. Draw the powerup symbol in the center
+                ctx.fillStyle = 'white'; // White symbol for contrast
+                ctx.fillText(pu.symbol, 0, 1); // Draw symbol slightly offset for better centering
+
+                ctx.restore(); // Restore canvas state
+            });
+            // Reset canvas text alignment and baseline for other drawing functions
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'alphabetic';
+        }
+
+        // --- UI Update Functions ---
+        // Functions to update the HTML elements displaying game information
+
+        function updateHealthUI() {
+            // Calculate health percentage and update the width of the health bar fill element
+            const healthPercent = clamp(player.health / playerStats.maxHealth, 0, 1) * 100;
+            healthFill.style.width = `${healthPercent}%`;
+        }
+
+        function updateEnergyUI() {
+            // Calculate energy percentage and update the width of the energy bar fill element
+            const energyPercent = clamp(player.energy / playerStats.maxEnergy, 0, 1) * 100;
+            energyFill.style.width = `${energyPercent}%`;
+        }
+
+        function updateScoreUI() {
+            // Update the score display text content
+            scoreDisplay.textContent = `${gameState.score}`;
+        }
+
+        function updateLevelUI() {
+            // Update the level display text content
+            levelDisplay.textContent = `Level: ${gameState.currentLevel}`;
+        }
+
+        function updateWaveUI() {
+            // Update the wave display text content based on game state (boss, wave count, cleared)
+            if (gameState.currentBoss) {
+                waveDisplay.textContent = "BOSS";
+            } else if (gameState.waveEnemyCount > 0) {
+                waveDisplay.textContent = `Wave: ${gameState.currentWave}/${CONFIG.WAVES_PER_LEVEL} (${gameState.waveEnemyCount})`;
+            } else {
+                // Show cleared only if wave count is 0 and no enemies are left spawning/on screen
+                waveDisplay.textContent = `Wave: ${gameState.currentWave}/${CONFIG.WAVES_PER_LEVEL} Cleared`;
+            }
+        }
+
+        // Adds score and updates the UI
+        function addScore(amount) {
+            gameState.score += amount;
+            updateScoreUI();
+
+            // Optional: Check for level up based on score (alternative progression)
+            // if (gameState.score >= gameState.currentLevel * CONFIG.LEVEL_SCORE_INCREMENT) {
+            //    startLevel(gameState.currentLevel + 1);
+            //}
+        }
+
+        // --- Input Handling ---
+        // Functions to set up and manage player input
+
+        function setupInputListeners() {
+            // Keyboard Listeners
+            window.addEventListener('keydown', handleKeyDown);
+            window.addEventListener('keyup', handleKeyUp);
+
+            // Touch Listeners (only add if touch is supported)
+            if (IS_TOUCH_DEVICE) {
+                touchControls.classList.remove('hidden'); // Make touch controls visible
+
+                // --- Touch Area Listeners (Movement) ---
+                // Use { passive: false } to allow preventDefault()
+                leftTouch.addEventListener('touchstart', (e) => { e.preventDefault(); input.touchLeftActive = true; }, { passive: false });
+                leftTouch.addEventListener('touchend', (e) => { e.preventDefault(); input.touchLeftActive = false; }, { passive: false });
+                leftTouch.addEventListener('touchcancel', (e) => { e.preventDefault(); input.touchLeftActive = false; }, { passive: false }); // Handle cancelled touches
+
+                rightTouch.addEventListener('touchstart', (e) => { e.preventDefault(); input.touchRightActive = true; }, { passive: false });
+                rightTouch.addEventListener('touchend', (e) => { e.preventDefault(); input.touchRightActive = false; }, { passive: false });
+                rightTouch.addEventListener('touchcancel', (e) => { e.preventDefault(); input.touchRightActive = false; }, { passive: false });
+
+                // --- Fire Button Listener ---
+                fireButton.addEventListener('touchstart', (e) => { e.preventDefault(); input.touchFireActive = true; }, { passive: false });
+                fireButton.addEventListener('touchend', (e) => { e.preventDefault(); input.touchFireActive = false; }, { passive: false });
+                fireButton.addEventListener('touchcancel', (e) => { e.preventDefault(); input.touchFireActive = false; }, { passive: false });
+
+                // Prevent default touch actions (like scrolling) on the canvas itself
+                canvas.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
+                canvas.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+
+            } else {
+                // --- Mouse Click Fallback for Firing (Desktop) ---
+                canvas.addEventListener('mousedown', (e) => {
+                    // Prevent firing if click is on a UI element potentially overlapping canvas
+                    if (e.target === canvas) { input.fire = true; }
+                });
+                canvas.addEventListener('mouseup', (e) => {
+                     if (e.target === canvas) { input.fire = false; }
+                });
+                 // Handle mouse leaving the canvas while button is pressed
+                 canvas.addEventListener('mouseleave', () => input.fire = false);
+            }
+
+            // Window Resize Listener
+            window.addEventListener('resize', handleResize);
+
+            // Menu Button Event Listeners
+            startButton.addEventListener('click', startGame);
+            continueButton.addEventListener('click', continueGame);
+            upgradesButton.addEventListener('click', showUpgradeMenu);
+            backToMenuButton.addEventListener('click', showMainMenu); // Back from upgrades
+            restartButton.addEventListener('click', startGame); // From game over
+            mainMenuButton.addEventListener('click', showMainMenu); // From game over
+
+            // Upgrade Button Listeners (using event delegation might be slightly more efficient for many buttons)
+            document.querySelectorAll('.upgradeButton').forEach(button => {
+                button.addEventListener('click', handleUpgradeClick);
+            });
+        }
+
+        // Handles key down events
+        function handleKeyDown(e) {
+            // Use switch statement for clarity
+            switch (e.key.toLowerCase()) { // Convert to lowercase for case-insensitivity
+                case 'arrowleft': case 'a': input.left = true; break;
+                case 'arrowright': case 'd': input.right = true; break;
+                case ' ': case 'arrowup': case 'w': input.fire = true; break; // Space, Up Arrow, or W to fire
+                case 'p': togglePause(); break; // P to pause/unpause
+                case 'escape': // Escape key behavior
+                     // If in game, pause
+                     if(gameState.running && !gameState.gameOver && !gameState.paused) {
+                         togglePause();
+                     }
+                     // If paused, unpause
+                     else if (gameState.paused) {
+                          togglePause();
+                     }
+                     // If in upgrade menu, go back to main menu
+                     else if (upgradeMenu.classList.contains('active')) {
+                         showMainMenu();
+                     }
+                     // If on main menu or game over, potentially do nothing or confirm exit (not implemented)
+                     break;
+            }
+        }
+
+        // Handles key up events
+        function handleKeyUp(e) {
+            switch (e.key.toLowerCase()) {
+                case 'arrowleft': case 'a': input.left = false; break;
+                case 'arrowright': case 'd': input.right = false; break;
+                case ' ': case 'arrowup': case 'w': input.fire = false; break;
+            }
+        }
+
+        // Consolidates input sources (keyboard, touch) into the main input state variables
+        function handleInput() {
+            // On touch devices, touch state overrides keyboard/mouse state for movement/fire
+            if (IS_TOUCH_DEVICE) {
+                input.left = input.touchLeftActive;
+                input.right = input.touchRightActive;
+                input.fire = input.touchFireActive;
+            }
+            // Keyboard state is updated directly by keydown/keyup listeners
+            // Mouse state for 'fire' is updated by mousedown/mouseup listeners
+        }
+
+        // Handles window resize events
+        function handleResize() {
+            // Update canvas dimensions
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            // Adjust player position if necessary to keep it on screen after resize
+            if (player) {
+                player.x = clamp(player.x, 0, canvas.width - player.width);
+                // If vertical movement was allowed, clamp Y as well:
+                // player.y = clamp(player.y, 0, canvas.height - player.height);
+            }
+            // Optional: Recreate stars to fit new dimensions better? Might cause a visual jump.
+            // createStars();
+            console.log(`Resized to ${canvas.width}x${canvas.height}`);
+        }
+
+        // --- Game State Management ---
+        // Functions controlling the flow of the game (levels, waves, game over, pause)
+
+        // Starts a new level
+        function startLevel(level) {
+            gameState.currentLevel = level;
+            gameState.currentWave = 1; // Reset wave count for the new level
+            console.log(`Starting Level ${level}`);
+            updateLevelUI(); // Update level display
+            // Optional: Award bonus credits at the start of a level
+            // gameState.totalCredits += 50 * level;
+            // updateUpgradeUI(); // Update currency display if credits awarded
+            startWave(1); // Start the first wave of the new level
+        }
+
+        // Starts a new wave within the current level
+        function startWave(wave) {
+            gameState.currentWave = wave;
+            // Calculate number of enemies for this wave based on level and wave number
+            // Example formula: Base + Level Bonus + Wave Bonus
+            gameState.enemiesToSpawnThisWave = 5 + Math.floor(gameState.currentLevel * 1.5) + Math.floor(gameState.currentWave * 1.2);
+            gameState.waveEnemyCount = gameState.enemiesToSpawnThisWave; // Set the counter for enemies to defeat
+            console.log(`Starting Wave ${wave}/${CONFIG.WAVES_PER_LEVEL}. Spawning ${gameState.enemiesToSpawnThisWave} enemies.`);
+            enemySpawnTimer = 1500; // Add a brief delay before the first enemy spawns in the wave
+            updateWaveUI(); // Update wave display
+        }
+
+        // Triggers the game over sequence
+        function triggerGameOver() {
+            console.log("Game Over Triggered");
+            gameState.running = false; // Stop the main game loop updates
+            gameState.gameOver = true; // Set game over flag
+            playSound('game_over'); // Play game over sound
+
+            // --- Post-Game Processing ---
+            // Update High Score if current score is higher
+            if (gameState.score > gameState.highScore) {
+                gameState.highScore = gameState.score;
+                console.log(`New High Score: ${gameState.highScore}`);
+            }
+            // Award credits based on score (example: 1 credit per 10 points)
+            const creditsEarned = Math.floor(gameState.score / 10);
+            gameState.totalCredits += creditsEarned;
+            console.log(`Earned ${creditsEarned} credits. Total: ${gameState.totalCredits}`);
+
+            saveGame(); // Save the updated high score and total credits
+
+            // --- Display Game Over Menu ---
+            finalScoreDisplay.textContent = `Final Score: ${gameState.score}`;
+            highScoreDisplay.textContent = `High Score: ${gameState.highScore}`;
+            gameOverMenu.classList.add('active'); // Show the game over overlay
+            waveDisplay.style.display = 'none'; // Hide the wave counter
+        }
+
+        // Toggles the paused state of the game
+        function togglePause() {
+            // Cannot pause if the game is already over
+            if (gameState.gameOver) return;
+
+            gameState.paused = !gameState.paused; // Flip the paused state
+            console.log(gameState.paused ? "Game Paused" : "Game Resumed");
+
+            if (gameState.paused) {
+                pauseIndicator.classList.add('active'); // Show the pause overlay
+                // Optional: Pause sounds if using a library that supports it
+                // Howler.pause();
+            } else {
+                pauseIndicator.classList.remove('active'); // Hide the pause overlay
+                // Optional: Resume sounds
+                // Howler.resume();
+                // Crucial: Reset lastTime to prevent a large deltaTime jump after unpausing
+                gameState.lastTime = performance.now();
+                // If the game loop was stopped by pausing, restart it
+                if (gameState.running && !gameState.loopHandle) {
+                     gameState.loopHandle = requestAnimationFrame(gameLoop);
+                     console.log("Game loop restarted after pause.");
+                }
+            }
+        }
+
+        // Initiates the screen shake effect
+        function triggerScreenShake(magnitude, duration) {
+            // Use the stronger shake if already shaking
+            gameState.screenShakeMagnitude = Math.max(gameState.screenShakeMagnitude, magnitude);
+            // Use the longer duration if already shaking
+            gameState.screenShakeTime = Math.max(gameState.screenShakeTime, duration);
+        }
+
+        // --- Menu Navigation ---
+        // Functions to switch between different menu overlays
+
+        function showMainMenu() {
+            // Ensure game loop is stopped if returning to menu
+            gameState.running = false;
+            gameState.paused = false; // Ensure not paused when returning to menu
+
+            // Set menu visibility
+            gameMenu.classList.add('active');
+            upgradeMenu.classList.remove('active');
+            gameOverMenu.classList.remove('active');
+            pauseIndicator.classList.remove('active');
+            waveDisplay.style.display = 'none'; // Hide in-game UI
+
+            // Check if save data exists to show/hide the 'Continue' button
+            if (localStorage.getItem(gameState.saveDataKey)) {
+                const saved = JSON.parse(localStorage.getItem(gameState.saveDataKey));
+                // Only show continue if there are credits OR upgrades purchased
+                if(saved && (saved.totalCredits > 0 || Object.values(saved.upgradeLevels || {}).some(level => level > 0))) {
+                   continueButton.classList.remove('hidden');
+                } else {
+                   continueButton.classList.add('hidden');
+                }
+            } else {
+                continueButton.classList.add('hidden');
+            }
+        }
+
+        function showUpgradeMenu() {
+            // Set menu visibility
+            gameMenu.classList.remove('active');
+            upgradeMenu.classList.add('active');
+            gameOverMenu.classList.remove('active');
+            updateUpgradeUI(); // Refresh upgrade costs and levels display
+        }
+
+        // --- Upgrade System ---
+        // Functions related to calculating stats, costs, and handling upgrades
+
+        // Recalculates player stats based on base values and current upgrade levels
+        function calculatePlayerStats() {
+            // Reset stats to base values first
+            playerStats.speed = CONFIG.PLAYER_BASE_SPEED;
+            playerStats.maxHealth = CONFIG.PLAYER_BASE_HEALTH;
+            playerStats.maxEnergy = CONFIG.PLAYER_BASE_ENERGY;
+            playerStats.energyRegen = CONFIG.PLAYER_BASE_ENERGY_REGEN;
+            playerStats.fireRate = CONFIG.PLAYER_BASE_FIRE_RATE;
+            playerStats.bulletDamage = CONFIG.PLAYER_BASE_BULLET_DAMAGE;
+
+            // Apply upgrades iteratively based on saved levels
+            for (const key in playerStats.upgradeLevels) {
+                const level = playerStats.upgradeLevels[key];
+                if (level > 0) {
+                    const upgradeInfo = CONFIG.UPGRADES[key];
+                    for (let i = 0; i < level; i++) { // Apply effect for each purchased level
+                        switch(key) {
+                            // Apply multiplicative increases
+                            case 'damage': playerStats.bulletDamage *= (1 + upgradeInfo.increase); break;
+                            case 'fireRate': playerStats.fireRate *= upgradeInfo.increase; break; // Note: increase is < 1 for fire rate
+                            // Apply flat increases
+                            case 'maxEnergy': playerStats.maxEnergy += upgradeInfo.increase; break;
+                            case 'energyRegen': playerStats.energyRegen += upgradeInfo.increase; break;
+                            case 'maxHealth': playerStats.maxHealth += upgradeInfo.increase; break;
+                            case 'speed': playerStats.speed += upgradeInfo.increase; break;
+                        }
+                    }
+                }
+            }
+            // Round stats where appropriate to avoid floating point issues or display weirdness
+            playerStats.fireRate = Math.max(50, Math.round(playerStats.fireRate)); // Ensure minimum fire rate (e.g., 50ms)
+            playerStats.bulletDamage = Math.round(playerStats.bulletDamage);
+            playerStats.maxHealth = Math.round(playerStats.maxHealth);
+            playerStats.maxEnergy = Math.round(playerStats.maxEnergy);
+            playerStats.speed = parseFloat(playerStats.speed.toFixed(1)); // Keep one decimal for speed
+            playerStats.energyRegen = parseFloat(playerStats.energyRegen.toFixed(1)); // Keep one decimal for regen
+
+            console.log("Calculated Player Stats:", playerStats);
+        }
+
+        // Calculates the cost of the next level for a given upgrade
+        function getUpgradeCost(upgradeKey) {
+            const upgradeInfo = CONFIG.UPGRADES[upgradeKey];
+            const currentLevel = playerStats.upgradeLevels[upgradeKey] || 0;
+            // Exponential cost formula: Cost = BaseCost * (Factor ^ CurrentLevel)
+            return Math.floor(upgradeInfo.baseCost * Math.pow(upgradeInfo.costFactor, currentLevel));
+        }
+
+        // Updates the display of the upgrade menu (costs, levels, bonuses, button states)
+        function updateUpgradeUI() {
+            // Update total credits display
+            upgradeCurrencyDisplay.textContent = `Credits: ${gameState.totalCredits}`;
+
+            // Update each upgrade card
+            document.querySelectorAll('.upgradeButton').forEach(button => {
+                const upgradeKey = button.dataset.upgrade;
+                if (!upgradeKey) return; // Skip if button has no data-upgrade attribute
+
+                const upgradeInfo = CONFIG.UPGRADES[upgradeKey];
+                if (!upgradeInfo) { // Safety check
+                    console.warn(`No config found for upgrade key: ${upgradeKey}`);
+                    return;
+                }
+
+                const currentLevel = playerStats.upgradeLevels[upgradeKey] || 0;
+                const cost = getUpgradeCost(upgradeKey);
+
+                // Find corresponding display elements within the card
+                const card = button.closest('.upgradeCard'); // Find parent card
+                if (!card) return;
+                const costSpan = card.querySelector(`[data-cost="${upgradeKey}"]`);
+                const levelSpan = card.querySelector(`[data-level="${upgradeKey}"]`);
+                const bonusSpan = card.querySelector(`[data-bonus="${upgradeKey}"]`);
+
+                // Update Level Display (shows the level number AFTER upgrading)
+                if (levelSpan) levelSpan.textContent = currentLevel + 1;
+
+                // Update Current Bonus Display
+                if (bonusSpan) {
+                    switch(upgradeKey) {
+                        case 'damage': bonusSpan.textContent = `${Math.round(((playerStats.bulletDamage / CONFIG.PLAYER_BASE_BULLET_DAMAGE) - 1) * 100)}`; break; // Show % increase
+                        case 'fireRate': bonusSpan.textContent = `${playerStats.fireRate}`; break; // Show actual interval in ms
+                        case 'maxEnergy': bonusSpan.textContent = `${Math.round(playerStats.maxEnergy)}`; break;
+                        case 'energyRegen': bonusSpan.textContent = `${playerStats.energyRegen.toFixed(1)}`; break; // Show with one decimal
+                        case 'maxHealth': bonusSpan.textContent = `${Math.round(playerStats.maxHealth)}`; break;
+                        case 'speed': bonusSpan.textContent = `${playerStats.speed.toFixed(1)}`; break;
+                    }
+                }
+
+                // Update Cost Display and Button State
+                if (costSpan) {
+                    if (currentLevel >= upgradeInfo.maxLevel) {
+                        costSpan.textContent = "MAX";
+                        button.disabled = true;
+                    } else {
+                        costSpan.textContent = `${cost} C`;
+                        button.disabled = gameState.totalCredits < cost; // Disable if cannot afford
+                    }
+                } else {
+                     // Fallback disable if costSpan not found but button exists
+                     button.disabled = (currentLevel >= upgradeInfo.maxLevel || gameState.totalCredits < cost);
+                }
+            });
+        }
+
+        // Handles clicks on upgrade buttons
+        function handleUpgradeClick(event) {
+            const button = event.currentTarget;
+            const upgradeKey = button.dataset.upgrade;
+            if (!upgradeKey) return;
+
+            const upgradeInfo = CONFIG.UPGRADES[upgradeKey];
+            const currentLevel = playerStats.upgradeLevels[upgradeKey] || 0;
+            const cost = getUpgradeCost(upgradeKey);
+
+            // Check if upgrade is possible (not max level and enough credits)
+            if (currentLevel < upgradeInfo.maxLevel && gameState.totalCredits >= cost) {
+                // Process the upgrade
+                gameState.totalCredits -= cost; // Deduct cost
+                playerStats.upgradeLevels[upgradeKey]++; // Increment level
+                console.log(`Upgraded ${upgradeKey} to level ${playerStats.upgradeLevels[upgradeKey]}. Cost: ${cost}. Remaining Credits: ${gameState.totalCredits}`);
+                calculatePlayerStats(); // Recalculate player stats with the new upgrade level
+                updateUpgradeUI(); // Refresh the upgrade menu display
+                saveGame(); // Save progress immediately after purchase
+                playSound('upgrade'); // Play upgrade success sound
+            } else {
+                // Log reason for failure and play error sound
+                console.log(`Cannot upgrade ${upgradeKey}. Max Level Reached: ${currentLevel >= upgradeInfo.maxLevel}, Not enough credits: ${gameState.totalCredits < cost}`);
+                playSound('error');
+            }
+        }
+
+        // --- Persistence (localStorage) ---
+        // Functions for saving and loading game progress
+
+        function saveGame() {
+            try {
+                // Create object with data to save
+                const dataToSave = {
+                    highScore: gameState.highScore,
+                    totalCredits: gameState.totalCredits,
+                    upgradeLevels: playerStats.upgradeLevels
+                };
+                // Convert object to JSON string and save to localStorage
+                localStorage.setItem(gameState.saveDataKey, JSON.stringify(dataToSave));
+                console.log("Game Saved:", dataToSave);
+            } catch (error) {
+                // Handle potential errors (e.g., localStorage full or disabled)
+                console.error("Error saving game state:", error);
+            }
+        }
+
+        function loadGame() {
+            try {
+                // Retrieve saved data string from localStorage
+                const savedData = localStorage.getItem(gameState.saveDataKey);
+                if (savedData) {
+                    // Parse the JSON string back into an object
+                    const parsedData = JSON.parse(savedData);
+                    // Load values into game state, providing defaults if properties are missing
+                    gameState.highScore = parsedData.highScore || 0;
+                    gameState.totalCredits = parsedData.totalCredits || 0;
+                    // Load upgrade levels, ensuring all keys exist
+                    if (parsedData.upgradeLevels) {
+                        for(const key in CONFIG.UPGRADES) {
+                           playerStats.upgradeLevels[key] = parsedData.upgradeLevels[key] || 0;
+                        }
+                    } else {
+                         // Initialize if upgradeLevels object wasn't saved
+                         playerStats.upgradeLevels = { damage: 0, fireRate: 0, maxEnergy: 0, energyRegen: 0, maxHealth: 0, speed: 0 };
+                    }
+                    console.log("Game Loaded:", parsedData);
+                } else {
+                    // No save data found, use default values (already initialized)
+                    console.log("No save data found. Using default values.");
+                }
+            } catch (error) {
+                // Handle errors during loading/parsing (e.g., corrupted data)
+                console.error("Error loading game state:", error);
+                // Reset to defaults if loading fails
+                gameState.highScore = 0;
+                gameState.totalCredits = 0;
+                playerStats.upgradeLevels = { damage: 0, fireRate: 0, maxEnergy: 0, energyRegen: 0, maxHealth: 0, speed: 0 };
+            }
+            // Always recalculate stats after loading (or defaulting) to apply loaded upgrade levels
+            calculatePlayerStats();
+            // Update UI elements that depend on loaded data
+            updateUpgradeUI(); // Reflects loaded credits and upgrade levels/costs
+            // Update high score display in game over menu (even if not visible yet)
+            highScoreDisplay.textContent = `High Score: ${gameState.highScore}`;
+            // Handle continue button visibility after loading
+            showMainMenu(); // This function now contains the logic to show/hide continue button
+        }
+
+        // --- Sound (Placeholder) ---
+        // Function to play sound effects (requires integration with an audio library or API)
+        function playSound(soundId) {
+            // Only attempt to play sound if globally enabled
+            if (!CONFIG.ENABLE_SOUND) return;
+            console.log(`DEBUG: Play Sound - ${soundId}`); // Log sound event for debugging
+
+            // --- Integration point for jsfxr, Howler.js, Web Audio API, etc. ---
+            // Example using a hypothetical 'audioLib.play(soundId)' function:
+            /*
+            switch(soundId) {
+               case 'shoot': audioLib.play('laser_player'); break;
+               case 'enemy_shoot': audioLib.play('laser_enemy'); break;
+               case 'explosion': audioLib.play('explosion_medium'); break;
+               case 'player_hit': audioLib.play('hit_damage'); break;
+               case 'shield_hit': audioLib.play('hit_shield'); break;
+               case 'powerup': audioLib.play('collect_item'); break;
+               case 'upgrade': audioLib.play('ui_confirm'); break;
+               case 'error': audioLib.play('ui_error'); break;
+               case 'game_over': audioLib.play('music_gameover'); break;
+               case 'boss_spawn': audioLib.play('alert_boss'); break;
+               case 'boss_defeat': audioLib.play('victory_boss'); break;
+               // ... add cases for all defined sounds
+            }
+            */
+        }
+
+        // --- Helpers ---
+        // Miscellaneous utility functions
+
+        // Converts a HEX color string to an RGB string "R, G, B" for use with rgba()
+        function hexToRgb(hex) {
+            // Remove leading '#' if present
+            hex = hex.replace(/^#/, '');
+            // Expand shorthand form (e.g., "03F") to full form (e.g., "0033FF")
+            if (hex.length === 3) {
+                hex = hex.split('').map(char => char + char).join('');
+            }
+            // Parse hex values for R, G, B
+            const bigint = parseInt(hex, 16);
+            const r = (bigint >> 16) & 255;
+            const g = (bigint >> 8) & 255;
+            const b = bigint & 255;
+            // Return comma-separated string
+            return `${r}, ${g}, ${b}`;
+        }
+
+        // --- Initialise the game ---
+        // Add event listener to call the init function once the window and all resources are loaded
+        window.addEventListener('load', init);
+
+    </script>
+</body>
+</html>
+
