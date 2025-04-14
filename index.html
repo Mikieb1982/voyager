@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Stellar Voyager: Cosmic Escape</title>
+    <style>
+        /* --- Base Styles & Reset --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; touch-action: manipulation; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+        body { overflow: hidden; position: fixed; width: 100%; height: 100%; background: #000; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: white; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+        canvas { display: block; position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+
+        /* --- UI Container & Elements --- */
+        #uiContainer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; }
+
+        /* Health & Energy Bars */
+        .statusBar { position: absolute; left: 15px; width: clamp(150px, 25vw, 250px); height: 20px; background: rgba(0, 0, 0, 0.6); border-radius: 10px; overflow: hidden; border: 2px solid #444; backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+        #healthBar { top: 15px; }
+        #energyBar { top: 45px; height: 15px; border-radius: 7px; }
+        .statusBarFill { height: 100%; width: 100%; transition: width 0.25s ease-out; }
+        #healthFill { background: linear-gradient(to right, #e74c3c, #f1c40f); }
+        #energyFill { background: linear-gradient(to right, #3498db, #5dade2); }
+
+        /* Score & Level Display */
+        .infoDisplay { position: absolute; top: 15px; right: 15px; text-align: right; text-shadow: 1px 1px 3px rgba(0,0,0,0.8); }
+        #scoreDisplay { font-size: clamp(20px, 4vw, 28px); font-weight: bold; color: #f1c40f; }
+        #levelDisplay { font-size: clamp(14px, 3vw, 18px); margin-top: 5px; color: #bdc3c7; }
+        #waveDisplay { font-size: clamp(14px, 3vw, 18px); margin-top: 5px; color: #bdc3c7; display: none; /* Shown during gameplay */ }
+
+        /* --- Touch Controls --- */
+        #touchControls { position: absolute; bottom: 0; left: 0; width: 100%; height: 150px; /* Increased height for better tap area */ display: flex; justify-content: space-between; pointer-events: auto; z-index: 5; }
+        .touchArea { position: absolute; bottom: 15px; width: clamp(100px, 30vw, 150px); height: clamp(100px, 30vw, 150px); background: rgba(255, 255, 255, 0.08); border-radius: 50%; display: flex; justify-content: center; align-items: center; color: rgba(255, 255, 255, 0.7); font-size: 36px; backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); border: 2px solid rgba(255, 255, 255, 0.15); }
+        #leftTouch { left: 15px; }
+        #rightTouch { right: 15px; }
+        #fireButton { position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); /* Centered Fire Button */ width: clamp(80px, 25vw, 120px); height: clamp(80px, 25vw, 120px); background: rgba(231, 76, 60, 0.2); border-radius: 50%; display: flex; justify-content: center; align-items: center; color: rgba(255, 255, 255, 0.8); font-size: clamp(16px, 4vw, 20px); font-weight: bold; backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); border: 2px solid rgba(231, 76, 60, 0.4); pointer-events: auto; z-index: 6; }
+
+        /* --- Menus (Shared Styles) --- */
+        .menuOverlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 10, 25, 0.9); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 10; pointer-events: auto; transition: opacity 0.3s ease-out, visibility 0.3s; opacity: 0; visibility: hidden; }
+        .menuOverlay.active { opacity: 1; visibility: visible; }
+
+        .menuTitle { font-size: clamp(36px, 8vw, 60px); margin-bottom: 30px; color: #3498db; text-shadow: 0 0 15px rgba(52, 152, 219, 0.7); text-align: center; font-weight: bold; }
+        .menuSubtitle { font-size: clamp(18px, 4vw, 24px); color: #f1c40f; margin: 10px 0 30px 0; text-shadow: 0 0 8px rgba(241, 196, 15, 0.6); }
+        .menuButton { width: clamp(200px, 60vw, 300px); height: clamp(50px, 10vh, 65px); background: linear-gradient(to bottom, #3498db, #2980b9); border: none; border-radius: 30px; color: white; font-size: clamp(16px, 3.5vw, 22px); font-weight: bold; margin: 12px 0; cursor: pointer; box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4); transition: transform 0.15s ease-out, box-shadow 0.15s ease-out, background 0.15s; display: flex; justify-content: center; align-items: center; }
+        .menuButton:hover { background: linear-gradient(to bottom, #4ca9e3, #3a9cd9); }
+        .menuButton:active { transform: scale(0.96); box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4); }
+        .menuButton.secondary { background: linear-gradient(to bottom, #555, #333); }
+        .menuButton.secondary:hover { background: linear-gradient(to bottom, #666, #444); }
+        .menuText { font-size: clamp(14px, 3vw, 18px); color: #bdc3c7; margin-top: 20px; text-align: center; max-width: 80%; }
+
+        /* --- Upgrade Menu Specifics --- */
+        #upgradeMenu { justify-content: flex-start; padding-top: 10vh; overflow-y: auto; }
+        .upgradeGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; width: 90%; max-width: 900px; margin-bottom: 20px; }
+        .upgradeCard { background: rgba(41, 128, 185, 0.15); border-radius: 15px; padding: 20px; border: 1px solid rgba(52, 152, 219, 0.4); box-shadow: 0 0 15px rgba(52, 152, 219, 0.1); display: flex; flex-direction: column; }
+        .upgradeTitle { font-size: clamp(18px, 4vw, 22px); color: #5dade2; margin-bottom: 8px; font-weight: bold; }
+        .upgradeDesc { font-size: clamp(13px, 2.5vw, 16px); margin-bottom: 15px; color: #bdc3c7; flex-grow: 1; }
+        .upgradeLevel { font-size: clamp(12px, 2vw, 14px); color: #888; margin-bottom: 10px; }
+        .upgradeButton { width: 100%; height: 45px; background: linear-gradient(to bottom, #2ecc71, #27ae60); border: none; border-radius: 10px; color: white; font-size: clamp(14px, 3vw, 16px); cursor: pointer; transition: background 0.2s; font-weight: bold; }
+        .upgradeButton:disabled { background: linear-gradient(to bottom, #95a5a6, #7f8c8d); cursor: not-allowed; opacity: 0.7; }
+        .upgradeButton span { font-weight: normal; opacity: 0.9; }
+
+        /* --- Game Over Menu Specifics --- */
+        #finalScore { font-size: clamp(28px, 6vw, 42px); margin: 20px 0; color: #f1c40f; font-weight: bold; }
+        #highScoreDisplay { font-size: clamp(18px, 4vw, 24px); color: #bdc3c7; margin-bottom: 30px; }
+
+        /* --- Loading Screen --- */
+        #loadingScreen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000510; z-index: 100; display: flex; flex-direction: column; justify-content: center; align-items: center; pointer-events: auto; }
+        #loadingText { font-size: 24px; color: #3498db; margin-bottom: 20px; }
+        #loadingBarContainer { width: 60%; max-width: 400px; height: 10px; background: #1a1a2a; border-radius: 5px; overflow: hidden; }
+        #loadingBar { width: 0%; height: 100%; background: #3498db; transition: width 0.1s linear; }
+
+        /* --- Misc --- */
+        .hidden { display: none !important; } /* Utility class */
+
+        /* --- Media Queries for Smaller Screens --- */
+        @media (max-width: 768px) {
+            #touchControls { height: 120px; }
+            .touchArea { width: 100px; height: 100px; font-size: 30px; }
+            #fireButton { width: 90px; height: 90px; }
+            .menuButton { width: clamp(180px, 70vw, 250px); }
+            #upgradeMenu { padding-top: 8vh; }
+        }
+        @media (max-width: 480px) {
+            .statusBar { width: clamp(120px, 40vw, 180px); height: 18px; }
+            #energyBar { top: 40px; height: 12px; }
+            .touchArea { width: 80px; height: 80px; font-size: 24px; bottom: 10px; }
+            #leftTouch { left: 10px; }
+            #rightTouch { right: 10px; }
+            #fireButton { width: 70px; height: 70px; bottom: 10px; font-size: 14px; }
+            .menuTitle { font-size: clamp(30px, 9vw, 45px); }
+            .menuButton { height: clamp(45px, 8vh, 55px); font-size: clamp(14px, 4vw, 18px); margin: 10px 0; }
+            #upgradeGrid { grid-template-columns: 1fr; } /* Single column on very small screens */
+        }
+
+    </style>
+</head>
+<body>
+    <div id="loadingScreen">
+        <div id="loadingText">Loading Stellar Voyager...</div>
+        <div id="loadingBarContainer"><div id="loadingBar"></div></div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="uiContainer">
+        <div id="healthBar" class="statusBar"><div id="healthFill" class="statusBarFill"></div></div>
+        <div id="energyBar" class="statusBar"><div id="energyFill" class="statusBarFill"></div></div>
+        <div class="infoDisplay">
+            <div id="scoreDisplay">0</div>
+            <div id="levelDisplay">Level: 1</div>
+            <div id="waveDisplay">Wave: 1 / 5</div>
+        </div>
+
+        <div id="touchControls" class="hidden">
+            <div id="leftTouch" class="touchArea">‹</div>
+            <div id="rightTouch" class="touchArea">›</div>
+            <div id="fireButton">FIRE</div>
+        </div>
+    </div>
+
+    <div id="gameMenu" class="menuOverlay active"> <h1 class="menuTitle">STELLAR VOYAGER</h1>
+        <h2 class="menuSubtitle">Cosmic Escape</h2>
+        <button id="startButton" class="menuButton">NEW GAME</button>
+        <button id="continueButton" class="menuButton hidden">CONTINUE</button> <button id="upgradesButton" class="menuButton">UPGRADES</button>
+        <p class="menuText">Use Arrow Keys/WASD to move, Space/Click to shoot. Touch controls available on mobile.</p>
+    </div>
+
+    <div id="upgradeMenu" class="menuOverlay">
+        <h1 class="menuTitle">SHIP SYSTEMS</h1>
+        <h2 id="upgradeCurrency" class="menuSubtitle">Credits: 0</h2>
+        <div class="upgradeGrid">
+            <div class="upgradeCard">
+                <div class="upgradeTitle">Photon Blaster Mk <span data-level="damage">1</span></div>
+                <div class="upgradeDesc">Increases primary weapon damage. More power against tougher hulls.</div>
+                <div class="upgradeLevel">Current Bonus: +<span data-bonus="damage">0</span>%</div>
+                <button class="upgradeButton" data-upgrade="damage">UPGRADE (<span data-cost="damage">100</span> C)</button>
+            </div>
+            <div class="upgradeCard">
+                <div class="upgradeTitle">Rapid Fire Matrix Mk <span data-level="fireRate">1</span></div>
+                <div class="upgradeDesc">Reduces time between shots. Overwhelm your foes!</div>
+                <div class="upgradeLevel">Current Rate: <span data-bonus="fireRate">500</span>ms</div>
+                <button class="upgradeButton" data-upgrade="fireRate">UPGRADE (<span data-cost="fireRate">150</span> C)</button>
+            </div>
+            <div class="upgradeCard">
+                <div class="upgradeTitle">Shield Capacitor Mk <span data-level="maxEnergy">1</span></div>
+                <div class="upgradeDesc">Increases maximum shield energy capacity. Absorb more hits.</div>
+                <div class="upgradeLevel">Current Capacity: <span data-bonus="maxEnergy">100</span></div>
+                <button class="upgradeButton" data-upgrade="maxEnergy">UPGRADE (<span data-cost="maxEnergy">200</span> C)</button>
+            </div>
+            <div class="upgradeCard">
+                <div class="upgradeTitle">Energy Recharge Coil Mk <span data-level="energyRegen">1</span></div>
+                <div class="upgradeDesc">Speeds up shield energy regeneration rate. Get back in the fight faster.</div>
+                <div class="upgradeLevel">Current Regen: <span data-bonus="energyRegen">1</span>/s</div>
+                <button class="upgradeButton" data-upgrade="energyRegen">UPGRADE (<span data-cost="energyRegen">250</span> C)</button>
+            </div>
+             <div class="upgradeCard">
+                <div class="upgradeTitle">Hull Plating Mk <span data-level="maxHealth">1</span></div>
+                <div class="upgradeDesc">Increases maximum ship health. Better survivability when shields fail.</div>
+                <div class="upgradeLevel">Current Health: <span data-bonus="maxHealth">100</span></div>
+                <button class="upgradeButton" data-upgrade="maxHealth">UPGRADE (<span data-cost="maxHealth">300</span> C)</button>
+            </div>
+             <div class="upgradeCard">
+                <div class="upgradeTitle">Impulse Engine Mk <span data-level="speed">1</span></div>
+                <div class="upgradeDesc">Increases ship maneuverability and top speed. Dodge incoming fire!</div>
+                <div class="upgradeLevel">Current Speed: <span data-bonus="speed">5</span></div>
+                <button class="upgradeButton" data-upgrade="speed">UPGRADE (<span data-cost="speed">175</span> C)</button>
+            </div>
+        </div>
+        <button id="backToMenuButton" class="menuButton secondary">BACK TO MAIN MENU</button>
+    </div>
+
+    <div id="gameOverMenu" class="menuOverlay">
+        <h1 class="menuTitle">TRANSMISSION LOST</h1>
+        <div id="finalScore" class="menuSubtitle">Final Score: 0</div>
+        <div id="highScoreDisplay">High Score: 0</div>
+        <button id="restartButton" class="menuButton">TRY AGAIN</button>
+        <button id="mainMenuButton" class="menuButton secondary">MAIN MENU</button>
+    </div>
+
+    <div id="pauseIndicator" class="menuOverlay" style="background: rgba(0,0,0,0.5); pointer-events: none;">
+        <h1 class="menuTitle" style="font-size: clamp(40px, 10vw, 80px); opacity: 0.8;">PAUSED</h1>
+    </div>
+
+    <script>
+        // --- Polyfills and Setup ---
+        window.requestAnimationFrame = window.requestAnimationFrame || window.webkitRequestAnimationFrame || window.mozRequestAnimationFrame || window.oRequestAnimationFrame || window.msRequestAnimationFrame || function(callback) { window.setTimeout(callback, 1000 / 60); };
+        const IS_TOUCH_DEVICE = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+        // --- DOM Elements ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const uiContainer = document.getElementById('uiContainer');
+        const healthFill = document.getElementById('healthFill');
+        const energyFill = document.getElementById('energyFill');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const levelDisplay = document.getElementById('levelDisplay');
+        const waveDisplay = document.getElementById('waveDisplay');
+        const touchControls = document.getElementById('touchControls');
+        const leftTouch = document.getElementById('leftTouch');
+        const rightTouch = document.getElementById('rightTouch');
+        const fireButton = document.getElementById('fireButton');
+        const gameMenu = document.getElementById('gameMenu');
+        const upgradeMenu = document.getElementById('upgradeMenu');
+        const gameOverMenu = document.getElementById('gameOverMenu');
+        const startButton = document.getElementById('startButton');
+        const continueButton = document.getElementById('continueButton');
+        const upgradesButton = document.getElementById('upgradesButton');
+        const backToMenuButton = document.getElementById('backToMenuButton');
+        const restartButton = document.getElementById('restartButton');
+        const mainMenuButton = document.getElementById('mainMenuButton');
+        const finalScoreDisplay = document.getElementById('finalScore');
+        const highScoreDisplay = document.getElementById('highScoreDisplay');
+        const pauseIndicator = document.getElementById('pauseIndicator');
+        const upgradeCurrencyDisplay = document.getElementById('upgradeCurrency');
+        const loadingScreen = document.getElementById('loadingScreen');
+        const loadingBar = document.getElementById('loadingBar');
+
+        // --- Game Configuration ---
+        const CONFIG = {
+            // Player Base Stats
+            PLAYER_BASE_SPEED: 5,
+            PLAYER_BASE_HEALTH: 100,
+            PLAYER_BASE_ENERGY: 100,
+            PLAYER_BASE_ENERGY_REGEN: 1, // Units per second
+            PLAYER_BASE_FIRE_RATE: 500, // ms between shots
+            PLAYER_BASE_BULLET_SPEED: 8,
+            PLAYER_BASE_BULLET_DAMAGE: 10,
+            PLAYER_WIDTH: 40,
+            PLAYER_HEIGHT: 55,
+            PLAYER_INVULN_TIME: 1500, // ms after hit
+
+            // Visuals
+            STAR_COUNT: 150,
+            STAR_MAX_SIZE: 2.5,
+            STAR_SPEED_FACTOR: [0.1, 0.3, 0.6], // Parallax layers
+            PARTICLE_COUNT: 100,
+            PARTICLE_LIFESPAN: 800, // ms
+            SCREEN_SHAKE_DURATION: 200, // ms
+            SCREEN_SHAKE_MAGNITUDE: 4, // pixels
+
+            // Gameplay
+            LEVEL_SCORE_INCREMENT: 5000, // Score needed to level up
+            WAVES_PER_LEVEL: 5,
+            ENEMY_SPAWN_BASE_RATE: 2500, // ms
+            ENEMY_SPAWN_RATE_SCALING: 0.9, // Multiplier per level
+            POWERUP_DROP_CHANCE: 0.1, // 10% chance on enemy kill
+            BOSS_SPAWN_LEVEL_INTERVAL: 3, // Boss every 3 levels
+
+            // Upgrades - [Base Cost, Cost Increase Factor, Stat Increase]
+            UPGRADES: {
+                damage: { baseCost: 100, costFactor: 1.6, increase: 0.2, maxLevel: 10, valueType: 'percent' }, // 20% damage increase
+                fireRate: { baseCost: 150, costFactor: 1.7, increase: 0.9, maxLevel: 10, valueType: 'multiplier' }, // Multiplies interval (0.9 = faster)
+                maxEnergy: { baseCost: 200, costFactor: 1.5, increase: 25, maxLevel: 10, valueType: 'flat' }, // +25 max energy
+                energyRegen: { baseCost: 250, costFactor: 1.6, increase: 0.5, maxLevel: 10, valueType: 'flat' }, // +0.5 energy/sec
+                maxHealth: { baseCost: 300, costFactor: 1.5, increase: 20, maxLevel: 10, valueType: 'flat' }, // +20 max health
+                speed: { baseCost: 175, costFactor: 1.6, increase: 0.5, maxLevel: 8, valueType: 'flat' }  // +0.5 speed units
+            },
+
+            // Audio (Placeholder - Recommend jsfxr or similar if implementing)
+            ENABLE_SOUND: false // Set to true if you add a sound library/generation
+        };
+
+        // --- Game State ---
+        let gameState = {
+            running: false,
+            paused: false,
+            gameOver: false,
+            currentLevel: 1,
+            currentWave: 1,
+            waveEnemyCount: 0, // Enemies remaining in current wave
+            enemiesToSpawnThisWave: 0,
+            score: 0,
+            highScore: 0,
+            totalCredits: 0, // Currency for upgrades
+            lastTime: 0,
+            deltaTime: 0,
+            gameTime: 0,
+            screenShakeTime: 0,
+            screenShakeMagnitude: 0,
+            currentBoss: null,
+            saveDataKey: 'stellarVoyagerSave_v1'
+        };
+
+        // --- Game Objects ---
+        let player;
+        let bullets = [];
+        let enemies = [];
+        let particles = [];
+        let stars = [];
+        let powerups = [];
+
+        // Player Stats (dynamically calculated based on upgrades)
+        let playerStats = {
+            speed: CONFIG.PLAYER_BASE_SPEED,
+            maxHealth: CONFIG.PLAYER_BASE_HEALTH,
+            maxEnergy: CONFIG.PLAYER_BASE_ENERGY,
+            energyRegen: CONFIG.PLAYER_BASE_ENERGY_REGEN,
+            fireRate: CONFIG.PLAYER_BASE_FIRE_RATE,
+            bulletDamage: CONFIG.PLAYER_BASE_BULLET_DAMAGE,
+            // Current upgrade levels
+            upgradeLevels: { damage: 0, fireRate: 0, maxEnergy: 0, energyRegen: 0, maxHealth: 0, speed: 0 }
+        };
+
+        // Input State
+        let input = {
+            left: false,
+            right: false,
+ 
